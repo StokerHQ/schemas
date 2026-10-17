@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.stokerhq.app/metadata/v1/dlc.schema.json",
+  "title": "Stoker metadata — DLC",
+  "description": "`games/<gameId>/dlc/<id>.json`: one piece of downloadable content for a game — an expansion, a soundtrack, a cosmetic pack. Not a game: it has no releases, nothing to start and no achievements of its own (the stores keep a DLC's achievements in its game's list). It has what a store sells it as — a name, external ids, a store page, artwork — and which other DLC of the game it needs. Whether a build carries it, and with which files, is the build's `dlc` fix, which names it by id. The pictures are in this file too: a DLC's page is small and rarely changes, and a folder per DLC would scatter one thing across two files.",
+  "type": "object",
+  "required": ["schemaVersion", "id", "gameId", "name"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "id": {
+      "description": "The file's name. Minted once, like a game's id, and what `dlc` fixes and requirements refer to it by.",
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "gameId": {
+      "description": "The game it is content for — the folder it is in.",
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "name": {
+      "description": "The name it is sold under, trademark signs removed. The full name (\"Example — Soundtrack\"), not a bare \"Soundtrack\" that only makes sense beside its game.",
+      "type": "string",
+      "minLength": 1
+    },
+    "requires": {
+      "description": "Other DLC of the same game this one needs installed beside it — directly; what it needs through them is walked, never listed. Afterbirth+ requires Afterbirth. Neither Steam nor GOG publishes this in a form that can be read, so every entry is somebody's knowledge.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "common.schema.json#/$defs/uuid" }
+    },
+    "externalIds": {
+      "description": "Its own ids: a Steam DLC has an AppId of its own, a Switch DLC a title id of its own, a Ubisoft DLC the product ids an install that carries it owns; IGDB and the other databases list many DLC as entries of their own.",
+      "$ref": "game.schema.json#/$defs/externalIds"
+    },
+    "storePage": { "$ref": "game.schema.json#/$defs/storePage" },
+    "artwork": { "$ref": "media.schema.json#/$defs/artwork" },
+    "reel": { "$ref": "media.schema.json#/$defs/reel" },
+    "links": { "$ref": "game.schema.json#/properties/links" },
+    "notes": {
+      "description": "What somebody needs to know about it: that its content ships inside the base game's files, that it only works from a certain release on. Markdown.",
+      "type": "string"
+    }
+  }
+}

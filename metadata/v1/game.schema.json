@@ -1,0 +1,282 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.stokerhq.app/metadata/v1/game.schema.json",
+  "title": "Stoker metadata — game",
+  "description": "`games/<id>/game.json`: what a title is, which stores know it, its store page, and the settings that make it run under Stoker. A game's DLC are not games: each is described in `games/<id>/dlc/<dlcId>.json` (`dlc.schema.json`). Everything here is true for every Stoker instance; what one instance decided for itself (hidden from its store, archived, locked fields, custom tags, Steam tracking) is never in the repository.",
+  "type": "object",
+  "required": ["schemaVersion", "id", "kind", "name"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "id": {
+      "description": "Stoker's id for the title — the folder's name. Not a store's id: a GOG-only title has no AppId, and one title on three stores would otherwise be three entries.",
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "kind": {
+      "description": "`tool` is something that is not itself playable: a config tool, a level editor, a mod manager. Shared runtimes (Visual C++, DirectX) are not games and live in the runtime catalogue.",
+      "enum": ["game", "tool"]
+    },
+    "name": {
+      "description": "The title as its publisher writes it, trademark signs removed.",
+      "type": "string",
+      "minLength": 1
+    },
+    "sortName": {
+      "description": "What to sort by when it differs from the name: `Witcher 3, The`.",
+      "type": "string",
+      "minLength": 1
+    },
+    "externalIds": { "$ref": "#/$defs/externalIds" },
+    "storePage": { "$ref": "#/$defs/storePage" },
+    "tags": {
+      "description": "The genres and features the stores list. A Stoker instance's own tags (\"kids\", \"LAN night\") are its own and are never here.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/tag" }
+    },
+    "cloudSaves": {
+      "description": "Where the game keeps save files that no API reports, in the order a player's files are listed. Steam Auto-Cloud's rules where Steam has them; a contributor's own for a GOG build, or to correct one.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/cloudSaveRule" }
+    },
+    "settings": { "$ref": "#/$defs/settings" },
+    "plugins": {
+      "description": "Plugins applied to every release of the game, in load order. A release's assignment of the same plugin replaces the game's, and only that one.",
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/pluginAssignment" }
+    },
+    "fixes": {
+      "description": "Patches and mods for the game's copies — applied last, after a build's own fixes and its release's — to whichever copies their `when` holds for. Written against a file's bytes, a fix here reaches every copy that has them, from any store or from disk, including one that matches no build this repository describes.",
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/gameFix" }
+    },
+    "links": {
+      "description": "Where else the game is documented — PCGamingWiki, a store page, a fix's home. For a person reading the entry; nothing follows them.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["label", "url"],
+        "additionalProperties": false,
+        "properties": {
+          "label": { "type": "string", "minLength": 1 },
+          "url": { "type": "string", "format": "uri" }
+        }
+      }
+    },
+    "notes": {
+      "description": "What somebody getting this game to run needs to know and nothing else records: a quirk, a dead end, why a setting is what it is. Markdown.",
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "externalIds": {
+      "description": "The game's, or a DLC's, identity elsewhere: in each store that sells it — what imports match by and what the store SDKs are answered with — and in the databases about games — what artwork, store pages and fixes are looked up by. Any may be absent, and a title may have all of them. Never synthesised: a made-up AppId is indistinguishable from a real one and, the first time it reaches anything that talks to Valve, means a different game. A minor version adds providers; a reader ignores those it does not know.",
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "igdb": {
+          "type": "object",
+          "required": ["id"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "description": "IGDB's numeric game id — the identity; the slug can change.", "type": "integer", "minimum": 1 },
+            "slug": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" }
+          }
+        },
+        "pcGamingWiki": {
+          "type": "object",
+          "required": ["pageId"],
+          "additionalProperties": false,
+          "properties": {
+            "pageId": { "description": "The wiki's page id, which survives a page being renamed.", "type": "integer", "minimum": 1 },
+            "title": { "description": "The page title, for a person: `The_Witcher_3:_Wild_Hunt`.", "type": "string", "minLength": 1 }
+          }
+        },
+        "steamGridDb": {
+          "type": "object",
+          "required": ["gameId"],
+          "additionalProperties": false,
+          "properties": {
+            "gameId": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "mobyGames": {
+          "type": "object",
+          "required": ["gameId"],
+          "additionalProperties": false,
+          "properties": {
+            "gameId": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "wikidata": {
+          "type": "object",
+          "required": ["id"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string", "pattern": "^Q[1-9][0-9]*$" }
+          }
+        },
+        "steam": {
+          "type": "object",
+          "required": ["appId"],
+          "additionalProperties": false,
+          "properties": {
+            "appId": { "type": "integer", "minimum": 1, "maximum": 4294967295 }
+          }
+        },
+        "gog": {
+          "type": "object",
+          "required": ["productId"],
+          "additionalProperties": false,
+          "properties": {
+            "productId": { "type": "string", "pattern": "^[0-9]+$" },
+            "galaxyClientId": {
+              "description": "The Galaxy client id GOG's achievement API is addressed by. Published in no catalogue — it is read out of a build manifest — so it is worth keeping once found.",
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          }
+        },
+        "epic": {
+          "description": "All three, because every Epic route needs all three. The app name is unique to the build line and is what an import matches by.",
+          "type": "object",
+          "required": ["namespace", "catalogItemId", "appName"],
+          "additionalProperties": false,
+          "properties": {
+            "namespace": { "type": "string", "minLength": 1 },
+            "catalogItemId": { "type": "string", "minLength": 1 },
+            "appName": { "type": "string", "minLength": 1 }
+          }
+        },
+        "ubisoft": {
+          "description": "The Ubisoft product ids Stoker's R2 loader reports as owned. On a base game, owned by every install; on a DLC, by an install that carries it. Ubisoft numbers editions, bundles and the items inside them separately, so a game can have dozens.",
+          "type": "object",
+          "required": ["productIds"],
+          "additionalProperties": false,
+          "properties": {
+            "productIds": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+            }
+          }
+        },
+        "eshop": {
+          "description": "A Nintendo Switch title id: the application id (ending in `000`) for a game, the DLC's own for a DLC.",
+          "type": "object",
+          "required": ["titleId"],
+          "additionalProperties": false,
+          "properties": {
+            "titleId": { "type": "string", "pattern": "^[0-9a-f]{16}$" }
+          }
+        }
+      }
+    },
+    "storePage": {
+      "description": "What a store page shows in words. A game's pictures are in `media.json`, a DLC's in its own file.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "shortDescription": { "$ref": "common.schema.json#/$defs/localizedText" },
+        "description": {
+          "description": "Unbounded. Steam's run past 9,000 characters (Baldur's Gate 3), and a cap only decides how much of a real description is lost.",
+          "$ref": "common.schema.json#/$defs/localizedText"
+        },
+        "developers": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "publishers": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "releaseDate": { "$ref": "common.schema.json#/$defs/partialDate" },
+        "sources": {
+          "description": "The stores the page was read from, in the order their values were merged.",
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/source" }
+        }
+      }
+    },
+    "tag": {
+      "type": "object",
+      "required": ["slug", "name", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "slug": {
+          "description": "The tag's identity: what two stores' spellings converge on (\"Co-op\", \"co op\" → `co-op`).",
+          "$ref": "common.schema.json#/$defs/slug"
+        },
+        "name": { "type": "string", "minLength": 1 },
+        "kind": {
+          "description": "`genre` is what sort of game it is; `feature` what it supports.",
+          "enum": ["genre", "feature"]
+        }
+      }
+    },
+    "cloudSaveRule": {
+      "type": "object",
+      "required": ["root", "path", "platforms"],
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "description": "The base folder, by Steam Auto-Cloud's names; `UbisoftConnect` is Ubisoft Connect's install folder, where some Ubisoft games write their saves themselves.",
+          "enum": [
+            "gameinstall",
+            "WinMyDocuments", "WinAppDataLocal", "WinAppDataLocalLow", "WinAppDataRoaming", "WinSavedGames",
+            "LinuxHome", "LinuxXdgDataHome", "LinuxXdgConfigHome",
+            "MacHome", "MacAppSupport", "MacDocuments",
+            "UbisoftConnect"
+          ]
+        },
+        "path": {
+          "description": "Below the root, forward slashes; empty for the root itself. May hold `{64BitSteamID}`, `{Steam3AccountID}` or `{UbisoftAccountID}`, filled in per player.",
+          "type": "string",
+          "pattern": "^(?![/~])(?!.*//)(?!.*/$)(?!(?:.*/)?\\.{1,2}(?:/|$))[^\\\\:\\u0000-\\u001f]*$"
+        },
+        "pattern": {
+          "description": "A file-name pattern; `*` and `?` are wildcards.",
+          "type": "string",
+          "minLength": 1,
+          "default": "*"
+        },
+        "recursive": { "type": "boolean", "default": false },
+        "platforms": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "common.schema.json#/$defs/desktopPlatform" }
+        },
+        "origin": {
+          "description": "`steam` when the rule is Steam's as published, `curated` when a contributor wrote or corrected it. An import from Steam replaces Steam's rules and never a curated one.",
+          "enum": ["steam", "curated"],
+          "default": "curated"
+        },
+        "enabled": {
+          "description": "False to overrule one of Steam's rules and keep it overruled: the rule stays, so a re-import does not bring it back.",
+          "type": "boolean",
+          "default": true
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "settings": {
+      "description": "How the game is run, for every release that does not say otherwise.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "overlayMode": {
+          "description": "How the in-game overlay is presented: `inFrame` draws into the game's own frames, `window` stacks windows over it (not over exclusive fullscreen), `off` shows nothing. A player may override it per machine.",
+          "enum": ["inFrame", "window", "off"],
+          "default": "inFrame"
+        },
+        "injectHooksAtLaunch": {
+          "description": "Start the game with its bootstrap already loaded and through its startup hook pass, for hooks and plugins that must catch something the game does before it would load the bootstrap itself.",
+          "type": "boolean",
+          "default": false
+        },
+        "hooks": {
+          "description": "Bootstrap hook rules. Absent means none.",
+          "$ref": "common.schema.json#/$defs/hooks"
+        }
+      }
+    }
+  }
+}

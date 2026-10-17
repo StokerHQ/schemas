@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.stokerhq.app/metadata/v1/leaderboards.schema.json",
+  "title": "Stoker metadata — leaderboards",
+  "description": "`games/<id>/leaderboards.json`: the game's leaderboards, in its own order — on Steam, the order of its leaderboard list. Definitions only — the scores are a Stoker instance's. A game creates its boards itself when it first runs, so the first caller's sort and display settings are what a board keeps; recording them here means two instances rank the same board the same way.",
+  "type": "object",
+  "required": ["schemaVersion", "gameId"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "gameId": { "$ref": "common.schema.json#/$defs/uuid" },
+    "leaderboards": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/leaderboard" }
+    }
+  },
+  "$defs": {
+    "leaderboard": {
+      "type": "object",
+      "required": ["name", "sortMethod", "displayType"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "description": "The name the game finds it by. Steam caps it at 128 characters.", "type": "string", "minLength": 1, "maxLength": 128 },
+        "displayName": { "type": "string" },
+        "sortMethod": {
+          "description": "Which end is the top: `ascending` for times, `descending` for points.",
+          "enum": ["ascending", "descending"]
+        },
+        "displayType": { "enum": ["numeric", "timeSeconds", "timeMilliseconds"] },
+        "origin": { "$ref": "common.schema.json#/$defs/definitionOrigin" }
+      }
+    }
+  }
+}

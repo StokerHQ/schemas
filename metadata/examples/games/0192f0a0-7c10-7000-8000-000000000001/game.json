@@ -1,0 +1,92 @@
+{
+  "$schema": "https://schemas.stokerhq.app/metadata/v1/game.schema.json",
+  "schemaVersion": "1.0",
+  "id": "0192f0a0-7c10-7000-8000-000000000001",
+  "kind": "game",
+  "name": "Example Hexagon",
+  "externalIds": {
+    "gog": { "productId": "1000000001" },
+    "igdb": { "id": 1000001, "slug": "example-hexagon" },
+    "pcGamingWiki": { "pageId": 1000002, "title": "Example_Hexagon" }
+  },
+  "storePage": {
+    "shortDescription": { "en": "A fictional game, here to show the shape of an entry." },
+    "description": {
+      "en": "Nothing about this game is real. It exists so the schemas have something to validate.\n\nA second paragraph, separated by a blank line.",
+      "de": "Nichts an diesem Spiel ist echt."
+    },
+    "developers": ["Example Studio"],
+    "publishers": ["Example Publishing"],
+    "releaseDate": "2012-09"
+  },
+  "tags": [
+    { "slug": "action", "name": "Action", "kind": "genre" },
+    { "slug": "single-player", "name": "Single-player", "kind": "feature" }
+  ],
+  "cloudSaves": [
+    { "root": "WinAppDataRoaming", "path": "ExampleHexagon", "pattern": "*.sav", "platforms": ["windows"], "origin": "curated" },
+    { "root": "LinuxXdgDataHome", "path": "example-hexagon", "pattern": "*.sav", "platforms": ["linux"], "origin": "curated" }
+  ],
+  "settings": {
+    "overlayMode": "inFrame",
+    "hooks": {
+      "hooks": [
+        {
+          "module": "crypt32.dll",
+          "function": "CryptQueryObject",
+          "behavior": "intercept",
+          "callingConvention": "stdcall",
+          "argCount": 11,
+          "param": 2,
+          "wide": true,
+          "mode": "filename",
+          "match": "a.dll",
+          "replace": "b.dll",
+          "when": [{ "param": 1, "equals": 1 }],
+          "log": true
+        }
+      ]
+    }
+  },
+  "plugins": [
+    { "plugin": { "key": "org.example.widescreen-fix", "version": "1.0.0" }, "config": { "aspect": "21:9" } }
+  ],
+  "fixes": [
+    {
+      "id": "0192f0a0-7c10-7000-8000-000000003001",
+      "role": "patch",
+      "name": "Skip the intro video",
+      "when": { "files": [{ "path": "ExampleHexagon.exe", "blake3": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }] },
+      "appliedWhen": { "files": [{ "path": "movies/intro.bik", "absent": true }] },
+      "steps": [
+        { "kind": "delete", "paths": ["movies/intro.bik"] },
+        { "kind": "hexEdit", "file": "ExampleHexagon.exe", "edits": [{ "offset": 74512, "from": "7405", "to": "eb05" }] }
+      ],
+      "notes": "The intro crashes on drivers newer than 2015; the jump makes the game skip it instead of waiting for it. Written against the unpacked executable, which every build's own `unpacked` fix produces first."
+    },
+    {
+      "id": "0192f0a0-7c10-7000-8000-000000003002",
+      "role": "patch",
+      "name": "High-DPI scaling",
+      "when": { "platforms": ["windows"] },
+      "optional": true,
+      "default": true,
+      "steps": [
+        { "kind": "windowsCompatibility", "executable": "ExampleHexagon.exe", "layers": ["HIGHDPIAWARE"] }
+      ]
+    },
+    {
+      "id": "0192f0a0-7c10-7000-8000-000000003003",
+      "role": "patch",
+      "name": "Use the bundled libraries",
+      "when": { "platforms": ["linux"] },
+      "steps": [
+        { "kind": "environment", "name": "LD_LIBRARY_PATH", "value": "%INSTALLDIR%/lib", "mode": "prepend", "launch": "play" }
+      ]
+    }
+  ],
+  "links": [
+    { "label": "PCGamingWiki", "url": "https://www.pcgamingwiki.com/wiki/Example" }
+  ],
+  "notes": "Runs fine once the widescreen fix is applied; without it the menu is cut off at 21:9."
+}

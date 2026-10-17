@@ -1,0 +1,37 @@
+{
+  "$schema": "https://schemas.stokerhq.app/metadata/v1/media.schema.json",
+  "schemaVersion": "1.0",
+  "gameId": "0192f0a0-7c10-7000-8000-000000000001",
+  "artwork": {
+    "capsule": {
+      "mediaType": "image/png",
+      "width": 2,
+      "height": 3,
+      "sha256": "d8635b1975cb6fbcb7c67723dd637572336e5b7e74ede316a4d8ad6da9e40d11",
+      "data": "iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAIAAAA2iEnWAAAAEklEQVR4nGM4obHghMYCBhQKAGN1CWEhLnIXAAAAAElFTkSuQmCC",
+      "source": { "provider": "community", "retrieved": "2026-10-16" }
+    }
+  },
+  "reel": [
+    {
+      "kind": "trailer",
+      "name": "Launch trailer",
+      "highlight": true,
+      "sourceKey": "256000001",
+      "source": { "provider": "community", "url": "https://example.invalid/trailer.mpd" },
+      "duration": 61.5,
+      "video": { "sha256": "1111111111111111111111111111111111111111111111111111111111111111", "size": 12582912, "codec": "av01.0.08M.08", "width": 1280, "height": 720 },
+      "audio": { "sha256": "2222222222222222222222222222222222222222222222222222222222222222", "size": 983040, "codec": "mp4a.40.2" }
+    },
+    {
+      "kind": "screenshot",
+      "image": {
+        "mediaType": "image/png",
+        "width": 1,
+        "height": 1,
+        "sha256": "d4bef930283bc02defec45cca148054869e77f52da4dfdb56978dc2aba52a4ec",
+        "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4dYIBAASCAcPqyeEfAAAAAElFTkSuQmCC"
+      }
+    }
+  ]
+}

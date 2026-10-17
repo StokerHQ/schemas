@@ -1,0 +1,20 @@
+{
+  "$schema": "https://schemas.stokerhq.app/metadata/v1/dlc.schema.json",
+  "schemaVersion": "1.0",
+  "id": "0192f0a0-7c10-7000-8000-000000000002",
+  "gameId": "0192f0a0-7c10-7000-8000-000000000001",
+  "name": "Example Hexagon — Soundtrack",
+  "storePage": {
+    "shortDescription": { "en": "The game's music, as files beside it." }
+  },
+  "artwork": {
+    "header": {
+      "mediaType": "image/png",
+      "width": 1,
+      "height": 1,
+      "sha256": "d4bef930283bc02defec45cca148054869e77f52da4dfdb56978dc2aba52a4ec",
+      "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4dYIBAASCAcPqyeEfAAAAAElFTkSuQmCC"
+    }
+  },
+  "notes": "Ships inside the base game's files; a build carries it as a `dlc` fix with nothing to do."
+}

@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.stokerhq.app/metadata/v1/media.schema.json",
+  "title": "Stoker metadata — media",
+  "description": "`games/<id>/media.json`: the game's artwork and media reel. A file apart from `game.json` because the images are inlined and make it large: editing a description should not mean a diff next to megabytes of base64. Images are in the document; trailers are not — they are tens of megabytes each, and are recorded by their source and their hash.",
+  "type": "object",
+  "required": ["schemaVersion", "gameId"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "gameId": { "$ref": "common.schema.json#/$defs/uuid" },
+    "artwork": { "$ref": "#/$defs/artwork" },
+    "reel": { "$ref": "#/$defs/reel" }
+  },
+  "$defs": {
+    "artwork": {
+      "description": "The four slots a library draws a game or a DLC with, by the names Steam's library cache uses.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "capsule": { "description": "Portrait box art, 2:3 (600×900 on Steam) — what a library grid shows.", "$ref": "common.schema.json#/$defs/image" },
+        "header": { "description": "The wide store header (460×215 on Steam).", "$ref": "common.schema.json#/$defs/image" },
+        "hero": { "description": "The wide banner behind a game's page.", "$ref": "common.schema.json#/$defs/image" },
+        "logo": { "description": "The transparent wordmark laid over the hero.", "$ref": "common.schema.json#/$defs/image" }
+      }
+    },
+    "reel": {
+      "description": "Screenshots and trailers, in the order the store page shows them — for Steam every trailer in its order, then every screenshot in its order.",
+      "type": "array",
+      "items": {
+        "oneOf": [{ "$ref": "#/$defs/screenshot" }, { "$ref": "#/$defs/trailer" }]
+      }
+    },
+    "screenshot": {
+      "type": "object",
+      "required": ["kind", "image"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "screenshot" },
+        "image": { "$ref": "common.schema.json#/$defs/image" }
+      }
+    },
+    "trailer": {
+      "description": "A trailer. Its bytes are not in the repository: an instance fetches them from the source and checks them against the hashes here.",
+      "type": "object",
+      "required": ["kind", "source", "video"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "trailer" },
+        "name": { "type": "string" },
+        "highlight": {
+          "description": "The store marks it as one to lead with. Recorded, not used to reorder: the store page keeps its order whatever is marked.",
+          "type": "boolean",
+          "default": false
+        },
+        "sourceKey": {
+          "description": "The store's own id for the trailer, so a re-import recognises it.",
+          "type": "string"
+        },
+        "source": { "$ref": "common.schema.json#/$defs/source" },
+        "thumbnail": { "$ref": "common.schema.json#/$defs/image" },
+        "duration": { "description": "Seconds.", "type": "number", "exclusiveMinimum": 0 },
+        "video": { "$ref": "#/$defs/track" },
+        "audio": {
+          "description": "Absent for a silent trailer.",
+          "$ref": "#/$defs/track"
+        }
+      }
+    },
+    "track": {
+      "description": "One stored track of a trailer, as Stoker keeps it: fragmented MP4.",
+      "type": "object",
+      "required": ["sha256", "size", "codec"],
+      "additionalProperties": false,
+      "properties": {
+        "sha256": { "$ref": "common.schema.json#/$defs/sha256" },
+        "size": { "type": "integer", "minimum": 1 },
+        "codec": {
+          "description": "RFC 6381 codec string: `av01.0.08M.08`, `mp4a.40.2`.",
+          "type": "string",
+          "minLength": 1
+        },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

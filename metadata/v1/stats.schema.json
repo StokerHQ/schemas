@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.stokerhq.app/metadata/v1/stats.schema.json",
+  "title": "Stoker metadata — stats",
+  "description": "`games/<id>/stats.json`: the stats a game keeps per player through its store's API, in the game's own order. Definitions only — every player's values are a Stoker instance's. Stores publish few of these (Steam's stat definitions live on Valve's partner backend, GOG has none), so most entries were observed in a running game and completed by somebody.",
+  "type": "object",
+  "required": ["schemaVersion", "gameId"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "gameId": { "$ref": "common.schema.json#/$defs/uuid" },
+    "stats": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/stat" }
+    }
+  },
+  "$defs": {
+    "stat": {
+      "type": "object",
+      "required": ["name", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "description": "The name the game reads and writes it by.", "type": "string", "minLength": 1 },
+        "displayName": { "type": "string" },
+        "type": {
+          "description": "Steamworks' stat types. An observed stat's type is the one the game's setter used.",
+          "enum": ["int", "float", "avgRate"]
+        },
+        "default": { "type": "number", "default": 0 },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "incrementOnly": { "description": "The value may only grow.", "type": "boolean", "default": false },
+        "maxChange": { "description": "The most one write may change it by.", "type": "number", "exclusiveMinimum": 0 },
+        "windowSize": { "description": "`avgRate` only: the window, in the units of the rate's denominator, the average is taken over.", "type": "number", "exclusiveMinimum": 0 },
+        "origin": { "$ref": "common.schema.json#/$defs/definitionOrigin" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "int" } } },
+          "then": { "properties": { "default": { "type": "integer" }, "min": { "type": "integer" }, "max": { "type": "integer" }, "maxChange": { "type": "integer" } } }
+        },
+        {
+          "if": { "properties": { "type": { "not": { "const": "avgRate" } } } },
+          "then": { "not": { "required": ["windowSize"] } }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,136 @@
+{
+  "$schema": "https://schemas.stokerhq.app/metadata/v1/release.schema.json",
+  "schemaVersion": "1.0",
+  "id": "0192f0a0-7c10-7000-8000-000000000101",
+  "gameId": "0192f0a0-7c10-7000-8000-000000000001",
+  "name": "1.0.7",
+  "order": 100,
+  "channel": "stable",
+  "releasedAt": "2013-01-14",
+  "changelog": { "en": "Fixes a crash on exit." },
+  "builds": [
+    {
+      "id": "0192f0a0-7c10-7000-8000-000000001001",
+      "platforms": ["windows", "linux"],
+      "architecture": "x86",
+      "sources": [
+        {
+          "kind": "installer",
+          "files": [
+            { "name": "setup_example_hexagon_1.0.7.exe", "size": 31457280, "sha256": "3333333333333333333333333333333333333333333333333333333333333333" }
+          ]
+        },
+        {
+          "kind": "steam",
+          "buildId": "1000003",
+          "depots": { "1000004": "5000000000000000001", "1000005": "5000000000000000002" }
+        }
+      ],
+      "content": {
+        "algorithm": "stoker-tree-1",
+        "digest": "4444444444444444444444444444444444444444444444444444444444444444",
+        "fileCount": 112,
+        "totalBytes": 48234496
+      },
+      "markers": [
+        { "path": "ExampleHexagon.exe", "size": 4194304, "blake3": "9999999999999999999999999999999999999999999999999999999999999999" },
+        { "path": "data/main.pak", "size": 41943040, "blake3": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
+      ],
+      "launches": [
+        { "key": "play", "name": "Play", "platform": "windows", "executable": "ExampleHexagon.exe", "default": true },
+        { "key": "play", "name": "Play", "platform": "linux", "executable": "ExampleHexagon.sh", "default": true },
+        { "key": "configure", "name": "Configure", "platform": "windows", "executable": "tools/config.exe", "arguments": "--windowed" }
+      ],
+      "integrations": [
+        {
+          "provider": "steamworks",
+          "platform": "windows",
+          "architecture": "x86",
+          "path": "steam_api.dll",
+          "action": "replace",
+          "originalBlake3": "5555555555555555555555555555555555555555555555555555555555555555",
+          "shippedLibraryVersion": "1.22",
+          "writeAppIdFile": true
+        },
+        {
+          "provider": "steamworks",
+          "platform": "linux",
+          "path": "lib/libsteam_api.so",
+          "action": "leave",
+          "notes": "No Linux Steamworks shim for this SDK generation yet."
+        }
+      ],
+      "dependencies": [
+        { "runtime": "vcredist-10-x86" },
+        { "runtime": "directx-jun2010", "optional": true }
+      ],
+      "selectionGroups": [
+        { "key": "language", "prompt": "Language", "mode": "pickOne" }
+      ],
+      "fixes": [
+        {
+          "id": "0192f0a0-7c10-7000-8000-000000002005",
+          "role": "unpacked",
+          "name": "SteamStub removed",
+          "when": { "platforms": ["windows"] },
+          "steps": [
+            {
+              "kind": "unpack",
+              "file": "ExampleHexagon.exe",
+              "unpacker": { "key": "org.example.steamless.variant31", "version": "3.1.0" },
+              "fromBlake3": "9999999999999999999999999999999999999999999999999999999999999999",
+              "toBlake3": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            }
+          ]
+        },
+        {
+          "id": "0192f0a0-7c10-7000-8000-000000002001",
+          "role": "setup",
+          "name": "Publisher setup",
+          "when": { "platforms": ["windows"] },
+          "steps": [
+            {
+              "kind": "registry",
+              "key": "HKEY_LOCAL_MACHINE\\Software\\Example\\Hexagon",
+              "name": "InstallPath",
+              "valueKind": "string",
+              "value": "%INSTALLDIR%"
+            }
+          ]
+        },
+        {
+          "id": "0192f0a0-7c10-7000-8000-000000002002",
+          "role": "languagePack",
+          "name": "German",
+          "selectionGroup": "language",
+          "steps": [
+            { "kind": "files", "content": { "algorithm": "stoker-tree-1", "digest": "6666666666666666666666666666666666666666666666666666666666666666", "fileCount": 3, "totalBytes": 204800 } },
+            { "kind": "iniSet", "file": "settings.ini", "section": "General", "key": "Language", "value": "de" }
+          ]
+        },
+        {
+          "id": "0192f0a0-7c10-7000-8000-000000002003",
+          "role": "languagePack",
+          "name": "Russian",
+          "selectionGroup": "language",
+          "available": false,
+          "unavailableReason": "The Russian file set ships no executable.",
+          "steps": [
+            { "kind": "files", "content": { "algorithm": "stoker-tree-1", "digest": "7777777777777777777777777777777777777777777777777777777777777777", "fileCount": 2, "totalBytes": 102400 } }
+          ]
+        },
+        {
+          "id": "0192f0a0-7c10-7000-8000-000000002004",
+          "role": "dlc",
+          "name": "Soundtrack",
+          "dlcId": "0192f0a0-7c10-7000-8000-000000000002",
+          "notes": "Ships inside the base game's files; nothing to do."
+        }
+      ],
+      "compatibility": [
+        { "platform": "windows", "status": "works", "verified": "2026-10-16" },
+        { "platform": "linux", "status": "untested" }
+      ]
+    }
+  ]
+}

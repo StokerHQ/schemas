@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.stokerhq.app/metadata/v1/achievements.schema.json",
+  "title": "Stoker metadata — achievements",
+  "description": "`games/<id>/achievements.json`: the definitions a game's achievements are kept against, in the game's own order. Definitions only — whose unlocks those are is a Stoker instance's, and never leaves it. A game's DLC have no list of their own: the stores keep a DLC's achievements in its game's.",
+  "type": "object",
+  "required": ["schemaVersion", "gameId"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "gameId": { "$ref": "common.schema.json#/$defs/uuid" },
+    "achievements": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/achievement" }
+    },
+    "ubisoftList": {
+      "description": "Ubisoft Connect's achievement list for the game, as Ubisoft gives it — what `aliases` are mapped from. Kept because Ubisoft only gives it to an account that owns the game. Not achievements of their own: a Steam edition already has Steam's.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["uplayId", "name"],
+        "additionalProperties": false,
+        "properties": {
+          "uplayId": { "type": "integer", "minimum": 0 },
+          "name": { "$ref": "common.schema.json#/$defs/localizedText" },
+          "description": { "$ref": "common.schema.json#/$defs/localizedText" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "achievement": {
+      "type": "object",
+      "required": ["apiName", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "apiName": {
+          "description": "The achievement's identity: what the game grants it by, and what every unlock is keyed by. For GOG, `achievement_key` — not the numeric id.",
+          "type": "string",
+          "minLength": 1
+        },
+        "aliases": {
+          "description": "Other names the game grants this same achievement under — as another store's API names it. Watch_Dogs on Steam grants through Ubisoft's API by number, which Stoker's loader reports as `uplay_<n>`; listing `uplay_1` here makes that grant this achievement. A name belongs to one achievement of a game, and is never also an `apiName`.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "name": { "$ref": "common.schema.json#/$defs/localizedText" },
+        "description": { "$ref": "common.schema.json#/$defs/localizedText" },
+        "hidden": {
+          "description": "Not described to a player until unlocked.",
+          "type": "boolean",
+          "default": false
+        },
+        "icon": {
+          "description": "The unlocked icon.",
+          "$ref": "common.schema.json#/$defs/image"
+        },
+        "iconLocked": {
+          "description": "The store's own locked icon. Steam ships a separate grey one, and a greyscale filter over the colour icon does not look like it.",
+          "$ref": "common.schema.json#/$defs/image"
+        },
+        "origin": { "$ref": "common.schema.json#/$defs/definitionOrigin" }
+      }
+    }
+  }
+}

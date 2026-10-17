@@ -1,0 +1,8 @@
+{
+  "$schema": "https://schemas.stokerhq.app/metadata/v1/stats.schema.json",
+  "schemaVersion": "1.0",
+  "gameId": "0192f0a0-7c10-7000-8000-000000000001",
+  "stats": [
+    { "name": "best_time", "displayName": "Best time", "type": "float", "default": 0, "origin": "observed" }
+  ]
+}
