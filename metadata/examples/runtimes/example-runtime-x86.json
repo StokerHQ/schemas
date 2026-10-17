@@ -1,0 +1,31 @@
+{
+  "$schema": "https://schemas.stokerhq.app/metadata/v1/runtime.schema.json",
+  "schemaVersion": "1.0",
+  "key": "example-runtime-x86",
+  "name": "Example C++ Runtime (x86)",
+  "platform": "windows",
+  "architecture": "x86",
+  "detection": {
+    "kind": "registryValue",
+    "key": "HKEY_LOCAL_MACHINE\\SOFTWARE\\Example\\Runtime\\x86",
+    "valueName": "Version"
+  },
+  "install": {
+    "arguments": "/install /quiet /norestart",
+    "successExitCodes": [0, 1638, 3010]
+  },
+  "copies": [
+    {
+      "version": "10.0.40219",
+      "installer": {
+        "fileName": "example_runtime_x86.exe",
+        "size": 5073240,
+        "blake3": "c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1",
+        "sha256": "c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2"
+      },
+      "steamRan": { "key": "HKEY_LOCAL_MACHINE\\Software\\Valve\\Steam\\Apps\\CommonRedist\\Example\\10.0", "value": "x86" },
+      "downloads": [{ "url": "https://example.com/runtime/example_runtime_x86.exe" }]
+    }
+  ],
+  "notes": "Fictional, like everything in the examples."
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://schemas.stokerhq.app/plugins/v1/version.schema.json",
+  "schemaVersion": "1.0",
+  "key": "org.example.unpacker.api",
+  "version": "3.1.0.5",
+  "kind": "library",
+  "files": [
+    {
+      "os": "windows",
+      "architecture": "il",
+      "fileName": "Example.Unpacker.API.dll",
+      "size": 31744,
+      "sha256": "f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3",
+      "blake3": "f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4",
+      "downloads": [{ "url": "https://example.com/unpacker/releases/3.1.0.5/unpacker.zip", "archive": { "format": "zip", "path": "Example.Unpacker.API.dll" } }]
+    }
+  ]
+}

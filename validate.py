@@ -1,17 +1,24 @@
-"""Validates a Stoker metadata repository against the v1 schemas.
+"""Validates a Stoker metadata repository, or a plugin catalogue, against the v1 schemas.
 
-    python -I validate.py <repository root>
+    python -I validate.py <repository root> [--plugins <plugin catalogue root>]
+
+The root may hold `games/`, `runtimes/` and `plugins/`. The plugin catalogue is read from
+`--plugins` when given, else from the root's own `plugins/` - it is a format of its own, kept beside
+the games for now and in a repository of its own later. Without one, plugin references go unchecked
+and the run says so.
 
 Two passes. The first checks every document against its schema. The second checks what a schema
 cannot see, because it spans documents or needs the bytes decoded: a folder is named after the id
 inside it, every document of a game names that game, an id means one thing in the whole repository,
 an inlined image is the image its type, size and hash say, a DLC's requirements are DLC of the same
-game, a copy can only ever match one build, and fixes refer to things that exist.
+game, a copy can only ever match one build, fixes refer to things that exist, and every runtime and
+plugin a game names is in the catalogue, of the right kind, configured as its contract says.
 
 Exits 0 when the repository is valid, 1 when anything is wrong, listing every problem rather
 than stopping at the first - a contributor fixing one error per run gives up.
 """
 
+import argparse
 import base64
 import datetime
 import hashlib
@@ -23,7 +30,7 @@ from pathlib import Path
 from jsonschema import Draft202012Validator, FormatChecker
 from referencing import Registry, Resource
 
-SCHEMAS = Path(__file__).resolve().parent / "metadata" / "v1"
+SCHEMAS = [Path(__file__).resolve().parent / family / "v1" for family in ("metadata", "plugins")]
 
 DOCUMENTS = {
     "game.json": "game.schema.json",
@@ -48,7 +55,7 @@ def require_uri_checks():
 
 def load_validators():
     resources = {}
-    for path in SCHEMAS.glob("*.schema.json"):
+    for path in (path for folder in SCHEMAS for path in folder.glob("*.schema.json")):
         schema = json.loads(path.read_text(encoding="utf-8"))
         resources[path.name] = schema
     registry = Registry().with_resources(
@@ -120,7 +127,7 @@ def partial_date_problem(value):
     return None
 
 
-def main(root):
+def main(root, plugins_root=None):
     require_uri_checks()
     validators = load_validators()
     problems = []
@@ -135,11 +142,16 @@ def main(root):
         else:
             ids[identifier] = where
 
-    if not (root / "games").is_dir():
-        print(f"{root}: no games/ folder")
+    if not any((root / name).is_dir() for name in ("games", "runtimes", "plugins")):
+        print(f"{root}: no games/, runtimes/ or plugins/ folder")
         return 1
 
-    for folder in sorted((root / "games").iterdir()):
+    catalogue_root = plugins_root or (root / "plugins" if (root / "plugins").is_dir() else None)
+    catalogue = load_catalogue(validators, catalogue_root, problems) if catalogue_root else None
+    runtimes = load_runtimes(validators, root, problems)
+    references = []  # (where, document) of every game and release, checked against the catalogues at the end
+
+    for folder in sorted((root / "games").iterdir()) if (root / "games").is_dir() else []:
         if not folder.is_dir():
             problems.append(f"games/{folder.name}: not a game folder")
             continue
@@ -167,14 +179,7 @@ def main(root):
                 continue
 
             schema = DOCUMENTS.get(path.name) if path.parent == folder else f"{NESTED[path.parent.name]}.schema.json"
-            for error in validators[schema].iter_errors(document):
-                location = "/".join(str(part) for part in error.absolute_path) or "(document)"
-                # A failed `not` quotes the whole instance, which for a release is the whole file.
-                message = f"must not match {json.dumps(error.validator_value)}" if error.validator == "not" else error.message
-                # The registry and environment rules are generated, case-folded patterns nobody can read.
-                if error.validator in ("pattern", "not") and len(json.dumps(error.validator_value)) > 160:
-                    message = f"{json.dumps(error.instance)} is not allowed here; the schema's description of this field says why"
-                problems.append(f"{relative}: {location}: {message}")
+            problems.extend(schema_problems(validators[schema], relative, document))
 
             for where, image in images(document, "$"):
                 try:
@@ -221,6 +226,8 @@ def main(root):
 
         # A game's fix may name any launch one of its builds has.
         game_launches = {launch.get("key") for release in releases.values() for build in release.get("builds", []) for launch in build.get("launches", [])}
+        references.append((f"games/{folder.name}/game.json", game))
+        references.extend((path.relative_to(root).as_posix(), release) for path, release in releases.items())
         game_fixes = {fix.get("id") for fix in game.get("fixes", [])}
         for index, fix in enumerate(game.get("fixes", [])):
             claim(fix.get("id"), f"games/{folder.name}/game.json: fixes[{index}]")
@@ -243,10 +250,192 @@ def main(root):
             for name in sorted({name for name in names if names.count(name) > 1}):
                 problems.append(f"games/{folder.name}/{file}: {name} names more than one {key[:-1]}")
 
+    for where, document in references:
+        problems.extend(check_references(where, document, runtimes, catalogue))
+
     for problem in problems:
         print(problem)
-    print(f"{len(games)} games, {len(problems)} problems")
+    if catalogue is None and references:
+        print("no plugin catalogue (plugins/ or --plugins): plugin references were not checked")
+    plugins = len(catalogue) if catalogue else 0
+    print(f"{len(games)} games, {len(runtimes)} runtimes, {plugins} plugins, {len(problems)} problems")
     return 1 if problems else 0
+
+
+def schema_problems(validator, relative, document):
+    for error in validator.iter_errors(document):
+        location = "/".join(str(part) for part in error.absolute_path) or "(document)"
+        # A failed `not` quotes the whole instance, which for a release is the whole file.
+        message = f"must not match {json.dumps(error.validator_value)}" if error.validator == "not" else error.message
+        # The registry and environment rules are generated, case-folded patterns nobody can read.
+        if error.validator in ("pattern", "not") and len(json.dumps(error.validator_value)) > 160:
+            message = f"{json.dumps(error.instance)} is not allowed here; the schema's description of this field says why"
+        yield f"{relative}: {location}: {message}"
+
+
+def read_document(path, relative, problems):
+    try:
+        return json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=no_duplicate_keys)
+    except ValueError as error:
+        problems.append(f"{relative}: not valid JSON: {error}")
+        return None
+
+
+def load_runtimes(validators, root, problems):
+    runtimes = {}
+    folder = root / "runtimes"
+    if not folder.is_dir():
+        return runtimes
+    installers = {}
+    for path in sorted(folder.iterdir()):
+        relative = path.relative_to(root).as_posix()
+        if not (path.is_file() and path.suffix == ".json"):
+            problems.append(f"{relative}: not a .json document")
+            continue
+        runtime = read_document(path, relative, problems)
+        if runtime is None:
+            continue
+        problems.extend(schema_problems(validators["runtime.schema.json"], relative, runtime))
+        if runtime.get("key") != path.stem:
+            problems.append(f"{relative}: key {runtime.get('key')} is not the file's name")
+        # A bundled installer is recognised by its hash, so one installer under two runtimes would
+        # make a game's copy count for whichever was read first.
+        for index, copy in enumerate(runtime.get("copies", [])):
+            digest = (copy.get("installer") or {}).get("blake3")
+            if digest in installers:
+                problems.append(f"{relative}: copies[{index}]: the same installer as {installers[digest]}")
+            installers.setdefault(digest, f"{relative}: copies[{index}]")
+        runtimes[path.stem] = runtime
+    return runtimes
+
+
+def load_catalogue(validators, root, problems):
+    """Every plugin of a catalogue: key to its plugin.json and its versions."""
+    catalogue = {}
+    folder = root / "plugins" if (root / "plugins").is_dir() else root
+    for plugin_folder in sorted(folder.iterdir()):
+        name = f"plugins/{plugin_folder.name}"
+        if not plugin_folder.is_dir():
+            problems.append(f"{name}: not a plugin folder")
+            continue
+        plugin = read_document(plugin_folder / "plugin.json", f"{name}/plugin.json", problems) if (plugin_folder / "plugin.json").is_file() else None
+        if plugin is None:
+            problems.append(f"{name}: no readable plugin.json")
+            continue
+        problems.extend(schema_problems(validators["plugin.schema.json"], f"{name}/plugin.json", plugin))
+        if plugin.get("key") != plugin_folder.name:
+            problems.append(f"{name}/plugin.json: key {plugin.get('key')} is not the folder's name")
+
+        versions = {}
+        for path in sorted(plugin_folder.iterdir()):
+            relative = f"{name}/{path.name}"
+            if path.name == "plugin.json":
+                continue
+            if not (path.is_file() and path.suffix == ".json"):
+                problems.append(f"{relative}: not a .json document")
+                continue
+            version = read_document(path, relative, problems)
+            if version is None:
+                continue
+            problems.extend(schema_problems(validators["version.schema.json"], relative, version))
+            if version.get("version") != path.stem:
+                problems.append(f"{relative}: version {version.get('version')} is not the file's name")
+            if version.get("key") != plugin_folder.name:
+                problems.append(f"{relative}: key {version.get('key')} is not the plugin's")
+            if version.get("kind") != plugin.get("kind"):
+                problems.append(f"{relative}: kind {version.get('kind')} is not the plugin's {plugin.get('kind')}")
+            slots = [(file.get("os"), file.get("architecture")) for file in version.get("files", [])]
+            for os, architecture in sorted({slot for slot in slots if slots.count(slot) > 1}, key=str):
+                problems.append(f"{relative}: more than one file for {os} {architecture}")
+            problems.extend(check_contract(relative, version.get("config")))
+            versions[path.stem] = version
+        catalogue[plugin_folder.name] = {"plugin": plugin, "versions": versions}
+
+    # What a version requires has to be in the catalogue and of a kind that can stand beside it.
+    allowed = {"hook": set(), "mod": {"mod"}, "unpacker": {"library"}, "library": {"library"}}
+    for key, entry in catalogue.items():
+        for version_name, version in entry["versions"].items():
+            for required in version.get("requires", []):
+                found = lookup(catalogue, required)
+                where = f"plugins/{key}/{version_name}.json"
+                if found is None:
+                    problems.append(f"{where}: requires {required.get('key')} {required.get('version')}, which the catalogue does not have")
+                elif found["kind"] not in allowed.get(version.get("kind"), set()):
+                    problems.append(f"{where}: {article(version.get('kind'))} cannot require the {found['kind']} {required.get('key')}")
+    return catalogue
+
+
+def article(word):
+    return f"{'an' if str(word)[:1] in 'aeiou' else 'a'} {word}"
+
+
+def lookup(catalogue, reference):
+    entry = catalogue.get(reference.get("key"))
+    return entry["versions"].get(reference.get("version")) if entry else None
+
+
+def check_contract(relative, contract):
+    """A contract has to be a schema a validator can use, and its defaults have to satisfy it."""
+    if not isinstance(contract, dict):
+        return
+    try:
+        Draft202012Validator.check_schema(contract)
+    except Exception as error:  # SchemaError, or a pattern the regex engine refuses
+        yield f"{relative}: config is not a usable schema: {getattr(error, 'message', error)}"
+        return
+    fields = dict(contract.get("properties", {}))
+    for name, field in list(fields.items()):
+        if field.get("type") == "object":
+            fields.update({f"{name}.{inner}": value for inner, value in field.get("properties", {}).items()})
+    for name, field in fields.items():
+        if "default" in field:
+            for error in Draft202012Validator({k: v for k, v in field.items() if k != "default"}).iter_errors(field["default"]):
+                yield f"{relative}: config field {name}: its default {json.dumps(field['default'])} breaks its own rule: {error.message}"
+    for name in contract.get("required", []):
+        if name not in contract.get("properties", {}):
+            yield f"{relative}: config requires {name}, which it does not define"
+
+
+def check_references(where, document, runtimes, catalogue):
+    """The runtimes and plugins a game or a release names: in the catalogues, of a kind that can be used there,
+    configured as the version's contract says."""
+    assignments = list(document.get("plugins", []))
+    for index, build in enumerate(document.get("builds", [])):
+        for dependency in build.get("dependencies", []):
+            if dependency.get("runtime") not in runtimes:
+                yield f"{where}: builds[{index}] needs runtime {dependency.get('runtime')}, which runtimes/ does not have"
+        for fix in build.get("fixes", []):
+            for step in fix.get("steps", []):
+                if step.get("kind") == "unpack" and catalogue is not None:
+                    found = lookup(catalogue, step.get("unpacker", {}))
+                    if found is None:
+                        yield f"{where}: builds[{index}] unpacks with {step['unpacker'].get('key')} {step['unpacker'].get('version')}, which the plugin catalogue does not have"
+                    elif found.get("kind") != "unpacker":
+                        yield f"{where}: builds[{index}] unpacks with {step['unpacker'].get('key')}, which is {article(found.get('kind'))}, not an unpacker"
+    if catalogue is None:
+        return
+    for index, assignment in enumerate(assignments):
+        reference = assignment.get("plugin", {})
+        found = lookup(catalogue, reference)
+        if found is None:
+            yield f"{where}: plugins[{index}]: {reference.get('key')} {reference.get('version')} is not in the plugin catalogue"
+            continue
+        if found.get("kind") not in ("hook", "mod"):
+            yield f"{where}: plugins[{index}]: {reference.get('key')} is {article(found.get('kind'))}, which is never assigned"
+            continue
+        contract = found.get("config")
+        config = assignment.get("config", {})
+        if contract is None:
+            if config:
+                yield f"{where}: plugins[{index}]: {reference.get('key')} {reference.get('version')} takes no configuration"
+            continue
+        try:
+            errors = list(Draft202012Validator({**contract, "additionalProperties": False}).iter_errors(config))
+        except Exception:
+            continue  # the catalogue already reported the contract
+        for error in errors:
+            location = "/".join(str(part) for part in error.absolute_path)
+            yield f"{where}: plugins[{index}].config{('.' + location) if location else ''}: {error.message}"
 
 
 def check_requirement_cycles(game, dlc):
@@ -422,7 +611,8 @@ def check_steps(where, fix, scripts, launches):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print(__doc__)
-        sys.exit(2)
-    sys.exit(main(Path(sys.argv[1])))
+    arguments = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    arguments.add_argument("root", type=Path)
+    arguments.add_argument("--plugins", type=Path, help="a plugin catalogue kept elsewhere")
+    options = arguments.parse_args()
+    sys.exit(main(options.root, options.plugins))

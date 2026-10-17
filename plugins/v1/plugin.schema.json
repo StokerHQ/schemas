@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.stokerhq.app/plugins/v1/plugin.schema.json",
+  "title": "Stoker plugins — plugin",
+  "description": "`plugins/<key>/plugin.json`: what a plugin is, across its versions. A plugin catalogue is its own format, apart from the game metadata: games name a plugin only by key and version, so the catalogue can sit beside the games or in a repository of its own with the same layout. The files are never in the catalogue — each version lists its files by hash and where their author publishes them — and a Stoker host runs no version its administrator has not approved.",
+  "type": "object",
+  "required": ["schemaVersion", "key", "kind", "name"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "$ref": "../../metadata/v1/common.schema.json#/$defs/schemaVersion" },
+    "key": {
+      "description": "The folder's name, and the key every version's manifest declares.",
+      "$ref": "../../metadata/v1/common.schema.json#/$defs/pluginKey"
+    },
+    "kind": { "$ref": "#/$defs/kind" },
+    "name": { "type": "string", "minLength": 1 },
+    "description": { "type": "string" },
+    "authors": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "license": {
+      "description": "An SPDX licence expression — `MIT`, `LGPL-2.1-only`, `CC-BY-NC-ND-4.0` — or `LicenseRef-<name>` for one SPDX does not list. What a host may do with the files is the licence's answer, which is why the catalogue links to the author's copy rather than keeping one.",
+      "type": "string",
+      "minLength": 1
+    },
+    "homepage": { "type": "string", "format": "uri" },
+    "sourceCode": { "type": "string", "format": "uri" },
+    "notes": { "description": "Markdown.", "type": "string" }
+  },
+  "$defs": {
+    "kind": {
+      "description": "`hook`: native code a Stoker bootstrap loads inside a game; assigned to games and releases. `mod`: files an install lays into a game for a mod loader — the loader itself (BepInEx), or a plugin for it; assigned like a hook. `unpacker`: a .NET assembly in Steamless's plugin format that removes a store's DRM wrapper from a stored build — it runs on the Stoker host itself, never in a game, is named only by a build's `unpack` step, and needs its administrator's approval every time a new version is to run. `library`: a file other plugins load (`Steamless.API`), never assigned and never run on its own.",
+      "enum": ["hook", "mod", "unpacker", "library"]
+    }
+  }
+}

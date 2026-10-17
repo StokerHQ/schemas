@@ -13,7 +13,9 @@ started, and the fixes, mods and quirks they need to run under Stoker.
 metadata/
   v1/                          the schemas, served as https://schemas.stokerhq.app/metadata/v1/<file>
   examples/                    a small, fictional metadata repository that validates
-validate.py                    checks a metadata repository against them
+plugins/
+  v1/                          the plugin catalogue's schemas: https://schemas.stokerhq.app/plugins/v1/<file>
+validate.py                    checks a metadata repository and a plugin catalogue against them
 ```
 
 ### Layout of a metadata repository
@@ -30,6 +32,9 @@ games/
       <dlc id>.json            one DLC: external ids, store page, artwork, the other DLC it needs
     releases/
       <release id>.json        one version, its fixes, and every known build of it with the build's own fixes
+runtimes/
+  <key>.json                   one runtime machines need (Visual C++, DirectX) and its known copies
+plugins/                       the plugin catalogue, for now (see "Plugin catalogue")
 ```
 
 | Document | Schema |
@@ -41,6 +46,7 @@ games/
 | `leaderboards.json` | `metadata/v1/leaderboards.schema.json` |
 | `dlc/*.json` | `metadata/v1/dlc.schema.json` |
 | `releases/*.json` | `metadata/v1/release.schema.json` |
+| `runtimes/*.json` | `metadata/v1/runtime.schema.json` |
 
 `metadata/v1/common.schema.json` holds the types the others share. Only `game.json` is required.
 
@@ -48,6 +54,11 @@ games/
 stores keep those in its game's list); it is what a store sells — a name, ids, a page, artwork — and
 lives in its game's folder. Whether a build carries it, and with which files, is that build's `dlc`
 fix, which names it by `dlcId`.
+
+**Runtimes are described once.** A build names a runtime by key (`vcredist-14-x64`); everything about
+installing it once per machine — the probe that says it is there, the silent switches, the exit codes
+that mean success — is in `runtimes/<key>.json`, with the copies games bundle, recognised by their
+installer's hash wherever a game put it.
 
 ### Rules the format is built on
 
@@ -120,12 +131,45 @@ A step read from the publisher's own install script (`source`) is exempt from th
 the publisher's installer would have done the same. Code a fix needs goes into the install as files,
 named by hash.
 
-Only the maintainer pushes to this repository. Signed releases, which a host could verify instead of
-trusting the place it cloned from, come with the plugin catalogue — plugins and hooks are code that
-runs inside games.
+Only the maintainer pushes to this repository. Plugins — code that runs inside games, or on the host —
+are held to more: a host's administrator approves every version before it runs (see "Plugin
+catalogue").
 
 Because `when` names files by hash, a fix written once on the game serves every copy that has those
 bytes, whichever store it came from.
+
+### Plugin catalogue — v1
+
+Plugins are a format of their own, so the catalogue can move to a repository of its own: games name
+a plugin only by key and version (`pluginRef`), never by where it is kept. The layout is the same
+wherever it lives:
+
+```
+plugins/
+  <key>/
+    plugin.json                what the plugin is: kind, name, author, licence, homepage
+    <version>.json             one immutable version: its files by hash, where their author publishes
+                               them, the config contract from its manifest, what it requires
+```
+
+| Document | Schema |
+|---|---|
+| `plugins/<key>/plugin.json` | `plugins/v1/plugin.schema.json` |
+| `plugins/<key>/<version>.json` | `plugins/v1/version.schema.json` |
+
+Kinds: `hook` (native code a bootstrap loads in a game), `mod` (files laid into a game for a mod
+loader, the loader included), `unpacker` (removes a DRM wrapper from a stored build, on the host
+itself) and `library` (loaded by other plugins). Hooks and mods are assigned to games and releases;
+an unpacker is named only by a build's `unpack` step.
+
+**No binaries.** A version lists each file's SHA-256 and BLAKE3 and the URLs its author publishes it
+at; whatever a host downloads, or an administrator supplies when every link is dead, is checked
+against the hash. The same holds for runtime installers. Nobody's binaries are redistributed, which
+licences such as Steamless's would not allow anyway.
+
+**A host's administrator approves every plugin version once** before it runs anywhere on that host,
+whatever the catalogue says — an unpacker runs on the host itself, a hook or a mod inside players'
+games. The catalogue's hashes make sure what was approved is what runs.
 
 ### Versions
 
@@ -170,20 +214,28 @@ catch a misspelt field; it is readers that are lenient, not the schemas.
   by hash and writes as many bytes as it replaces;
 - no achievement name or alias, stat or leaderboard name is used twice, nor a tag slug.
 
+- every runtime a build needs is in `runtimes/`, and no installer belongs to two runtimes;
+- every plugin a game, release or `unpack` step names is in the catalogue at that version, of a kind
+  that can be used there, configured as its contract says; a version's kind is its plugin's, it has one
+  file per platform and architecture, what it requires exists and may stand beside it, and its config
+  contract is a usable schema whose defaults obey it.
+
 ```
-python -I validate.py <metadata repository root>
+python -I validate.py <metadata repository root> [--plugins <plugin catalogue root>]
 python -I validate.py metadata/examples
 ```
+
+The catalogue is read from `--plugins` when given, else from the repository's own `plugins/`.
+Without either, plugin references go unchecked and the run says so.
 
 Needs `jsonschema[format-nongpl]` 4.18 or newer. Without the `format-nongpl` extra jsonschema
 passes every URI unchecked, so the validator refuses to run without it.
 
 ### Not decided yet
 
-- **The runtime and plugin catalogues.** Builds name runtimes by key (`vcredist-14-x64`) and games
-  name plugins by key and version; the documents describing those (`runtimes/<key>.json`,
-  `plugins/<key>/…`) are the next schemas. Plugins are code that runs inside games, so how a host
-  trusts a published one (signing) has to be settled with them.
+- **Signed plugin versions.** Approval by each host's administrator and the catalogue's hashes are the
+  trust model for now; a signature a host could verify independently of where it cloned the catalogue
+  from comes when the catalogue has its own repository.
 - **Where fix content comes from.** A `files` step names its files by fingerprint and a
   `binaryPatch` its diff by hash; for a community patch or a mod an instance does not already hold,
   the repository will need to say where to get them. That arrives as a minor version.

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://schemas.stokerhq.app/plugins/v1/plugin.schema.json",
+  "schemaVersion": "1.0",
+  "key": "org.example.unpacker.api",
+  "kind": "library",
+  "name": "Example unpacker API",
+  "description": "The library every example unpacker loads.",
+  "license": "LicenseRef-Example",
+  "homepage": "https://example.com/unpacker"
+}

@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.stokerhq.app/metadata/v1/runtime.schema.json",
+  "title": "Stoker metadata — runtime",
+  "description": "`runtimes/<key>.json`: one runtime a machine needs before games will run — Visual C++ 2015-2022 (x64), DirectX June 2010, PhysX — identified by what it is, not by any copy of it. Everything about installing it once per machine is here, once: how to tell it is already there, how to run its installer silently, which exit codes mean success. A build names it by key; forty games that need it cost one installer run. Its copies are listed below because games bundle their own and those differ — a 2019 game ships 14.28, a 2023 one 14.36 — and the newest a machine needs is the one that runs. The installers are never in the repository: a copy is recognised by its hash in a game's files, or downloaded from its publisher.",
+  "type": "object",
+  "required": ["schemaVersion", "key", "name", "platform", "architecture", "detection", "install"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "key": {
+      "description": "The file's name. Stable across every version of the runtime; the architecture is part of it, because the x86 and x64 forms register separately and one does not satisfy the other.",
+      "$ref": "common.schema.json#/$defs/runtimeKey"
+    },
+    "name": {
+      "description": "What a person reads: \"Microsoft Visual C++ 2015-2022 Redistributable (x64)\".",
+      "type": "string",
+      "minLength": 1
+    },
+    "platform": {
+      "description": "The one platform it installs on. A build serving several platforms keeps one dependency list, and a runtime for another platform than the one being installed is skipped.",
+      "$ref": "common.schema.json#/$defs/platform"
+    },
+    "architecture": {
+      "enum": ["x86", "x64", "arm64", "any"]
+    },
+    "detection": { "$ref": "#/$defs/detection" },
+    "install": {
+      "description": "How any copy's installer is run. On the runtime, not the copy, because the switches are a property of the runtime: supplied once, they hold for every copy a game will ever bundle.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "arguments": {
+          "description": "The switches that make it install without a window: `/install /quiet /norestart`. Absent when nobody knows them, which leaves the runtime unable to install unattended.",
+          "type": "string"
+        },
+        "requiresElevation": { "type": "boolean", "default": true },
+        "successExitCodes": {
+          "description": "Exit codes that mean it worked. Not only zero: 1638 is \"a newer version is already installed\", 3010 \"done, restart pending\" — failing either would fail an install that worked.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "integer" },
+          "default": [0]
+        },
+        "requires64BitOs": {
+          "description": "Skip it on 32-bit Windows; every copy of an x64 runtime needs a 64-bit system.",
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "copies": {
+      "description": "Known copies of the runtime's installer, newest first.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/copy" }
+    },
+    "links": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["label", "url"],
+        "additionalProperties": false,
+        "properties": {
+          "label": { "type": "string", "minLength": 1 },
+          "url": { "type": "string", "format": "uri" }
+        }
+      }
+    },
+    "notes": { "description": "Markdown.", "type": "string" }
+  },
+  "$defs": {
+    "detection": {
+      "description": "How a machine tells the runtime is already there — and so whether a copy's installer needs to run at all.",
+      "oneOf": [
+        {
+          "description": "Nothing to probe: the only evidence is the launcher's own record of having installed it on this machine. Weaker than a probe, because it cannot see a copy something else installed, but never wrong.",
+          "type": "object",
+          "required": ["kind"],
+          "additionalProperties": false,
+          "properties": { "kind": { "const": "ledger" } }
+        },
+        {
+          "description": "A registry value exists, and reads at least the copy's `version` when the copy has one — which is what makes an older runtime upgrade rather than count as satisfied.",
+          "type": "object",
+          "required": ["kind", "key", "valueName"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "registryValue" },
+            "key": {
+              "description": "The full key, hive included: `HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x64`. Read in the registry view of the runtime's architecture.",
+              "type": "string",
+              "pattern": "^HKEY_(?:LOCAL_MACHINE|CURRENT_USER)\\\\[^\\\\]+(?:\\\\[^\\\\]+)*$"
+            },
+            "valueName": { "type": "string", "minLength": 1 }
+          }
+        },
+        {
+          "description": "A file exists. For runtimes that write no registry marker.",
+          "type": "object",
+          "required": ["kind", "path"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "fileExists" },
+            "path": {
+              "description": "An absolute path on the machine, environment variables in the platform's own form: `%SystemRoot%\\System32\\d3dx9_43.dll`, `$HOME/.local/lib/x.so`.",
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      ]
+    },
+    "copy": {
+      "type": "object",
+      "required": ["installer"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "description": "The version this copy installs, as the detection probe reads it: a machine with less installs this copy. Also how copies are ranked; absent, the copy only ever satisfies the ledger.",
+          "type": "string",
+          "minLength": 1
+        },
+        "installer": {
+          "description": "The file that is run. A game's bundled copy is recognised by this file's BLAKE3 in the game's manifest (`_CommonRedist/vcredist/2019/VC_redist.x64.exe`), wherever the game put it; a download is checked against the SHA-256.",
+          "type": "object",
+          "required": ["fileName", "size", "blake3", "sha256"],
+          "additionalProperties": false,
+          "properties": {
+            "fileName": { "$ref": "common.schema.json#/$defs/fileName" },
+            "size": { "type": "integer", "minimum": 1 },
+            "blake3": { "$ref": "common.schema.json#/$defs/blake3" },
+            "sha256": { "$ref": "common.schema.json#/$defs/sha256" }
+          }
+        },
+        "package": {
+          "description": "For an installer that needs files beside it (DirectX's `DXSETUP.exe` and its cabinets): the whole folder by fingerprint — without Steam's `installscript.vdf`, which names the shipping game and would make two identical copies differ — and where the installer sits in it.",
+          "type": "object",
+          "required": ["content", "installerPath"],
+          "additionalProperties": false,
+          "properties": {
+            "content": { "$ref": "common.schema.json#/$defs/contentFingerprint" },
+            "installerPath": { "$ref": "common.schema.json#/$defs/relativePath" }
+          }
+        },
+        "steamRan": {
+          "description": "Where Steam records having run this copy's installer, and the value it writes there — proof of presence for a runtime with only the ledger to go on. Its absence proves nothing: it is a record of what Steam did, not a probe of the machine.",
+          "type": "object",
+          "required": ["key", "value"],
+          "additionalProperties": false,
+          "properties": {
+            "key": { "type": "string", "minLength": 1 },
+            "value": { "type": "string", "minLength": 1 }
+          }
+        },
+        "downloads": { "$ref": "common.schema.json#/$defs/downloads" },
+        "notes": { "type": "string" }
+      }
+    }
+  }
+}

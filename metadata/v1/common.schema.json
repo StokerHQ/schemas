@@ -118,18 +118,46 @@
       "type": "string",
       "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$"
     },
+    "pluginKey": {
+      "description": "A plugin's identity: the reverse-DNS id its manifest declares (`org.example.filename-redirect`), or for a .NET assembly its name in lower case (`steamless.variant31.x64`, `sharpdisasm`).",
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+    },
+    "pluginVersion": {
+      "description": "Three or four numbers, optionally a pre-release suffix: `1.2.0`, `3.1.0.5`, `0.0.0-legacy`. No build metadata (`+…`), because a version is also a file name.",
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)(?:\\.(?:0|[1-9][0-9]*))?(?:-[0-9A-Za-z]+(?:\\.[0-9A-Za-z]+)*)?$"
+    },
     "pluginRef": {
-      "description": "A plugin of the repository's plugin catalogue — a hook plugin, a mod loader, a mod — pinned to one version. Pinned, because a newer version must never change what an existing entry installs.",
+      "description": "A plugin of the plugin catalogue (`https://schemas.stokerhq.app/plugins/v1/`) — a hook plugin, a mod loader, a mod, an unpacker — pinned to one version. Pinned, because a newer version must never change what an existing entry installs. By key and version only, never by where the catalogue is kept, so the catalogue can live in a repository of its own.",
       "type": "object",
       "required": ["key", "version"],
       "additionalProperties": false,
       "properties": {
-        "key": {
-          "description": "The plugin's reverse-DNS id, as its manifest declares it.",
-          "type": "string",
-          "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)+$"
-        },
+        "key": { "$ref": "#/$defs/pluginKey" },
         "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "downloads": {
+      "description": "Where the file's publisher offers it, in order of preference. Never a copy somebody else made: the repository redistributes nobody's binaries. Whatever comes back is checked against the file's hash, which alone decides whether it is the file; when every link is dead, an administrator supplies the file by hand and the hash still decides.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["url"],
+        "additionalProperties": false,
+        "properties": {
+          "url": { "type": "string", "format": "uri", "pattern": "^https://" },
+          "archive": {
+            "description": "When the URL serves an archive the file is inside: its format and the file's path in it.",
+            "type": "object",
+            "required": ["format", "path"],
+            "additionalProperties": false,
+            "properties": {
+              "format": { "enum": ["zip", "tarGz", "sevenZip"] },
+              "path": { "$ref": "#/$defs/relativePath" }
+            }
+          }
+        }
       }
     },
     "pluginAssignment": {

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://schemas.stokerhq.app/metadata/v1/runtime.schema.json",
+  "schemaVersion": "1.0",
+  "key": "example-media-runtime",
+  "name": "Example Media Runtime",
+  "platform": "windows",
+  "architecture": "any",
+  "detection": { "kind": "fileExists", "path": "%SystemRoot%\\System32\\example_media_43.dll" },
+  "install": {
+    "arguments": "/silent",
+    "successExitCodes": [0]
+  },
+  "copies": [
+    {
+      "installer": {
+        "fileName": "MEDIASETUP.exe",
+        "size": 535008,
+        "blake3": "d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1",
+        "sha256": "d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2"
+      },
+      "package": {
+        "content": { "algorithm": "stoker-tree-1", "digest": "d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3", "fileCount": 41, "totalBytes": 101830032 },
+        "installerPath": "MEDIASETUP.exe"
+      },
+      "downloads": [{ "url": "https://example.com/media/media_redist.zip", "archive": { "format": "zip", "path": "MEDIASETUP.exe" } }],
+      "notes": "Needs its cabinets beside it, so a game's copy is matched by the whole folder."
+    }
+  ]
+}

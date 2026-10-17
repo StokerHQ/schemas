@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.stokerhq.app/plugins/v1/version.schema.json",
+  "title": "Stoker plugins — version",
+  "description": "`plugins/<key>/<version>.json`: one version of a plugin — immutable once published, as a new binary is a new version. It may gain files for further platforms later, never change one: a file listed here is the file every host that approved this version runs. Hashes pin the bytes; where the author publishes them is in `downloads`.",
+  "type": "object",
+  "required": ["schemaVersion", "key", "version", "kind", "files"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "$ref": "../../metadata/v1/common.schema.json#/$defs/schemaVersion" },
+    "key": { "$ref": "../../metadata/v1/common.schema.json#/$defs/pluginKey" },
+    "version": {
+      "description": "The file's name.",
+      "$ref": "../../metadata/v1/common.schema.json#/$defs/pluginVersion"
+    },
+    "kind": {
+      "description": "Repeated from `plugin.json`, so this file can be checked on its own.",
+      "$ref": "plugin.schema.json#/$defs/kind"
+    },
+    "name": { "description": "The version's own name, when its manifest gives one other than the plugin's.", "type": "string", "minLength": 1 },
+    "description": { "type": "string" },
+    "released": { "$ref": "../../metadata/v1/common.schema.json#/$defs/partialDate" },
+    "abi": {
+      "description": "Hook plugins: the hook ABI the plugin was built for, from its manifest.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "hosts": {
+      "description": "Hook plugins: the bootstraps that may load it, from its manifest. Absent: every bootstrap that takes plugins.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["steamworks", "ubisoft", "galaxy"] }
+    },
+    "manifestSha256": {
+      "description": "Hook plugins: SHA-256 of the manifest embedded in every file of the version (`.stkmeta`). Every file carries the identical manifest, so one configuration contract is right for all of them — and a host reading a file's manifest can tell it is this version.",
+      "$ref": "../../metadata/v1/common.schema.json#/$defs/sha256"
+    },
+    "config": {
+      "description": "What can be configured, from the plugin's manifest: the subset of JSON Schema a host renders as a form and checks every assignment's `config` against.",
+      "$ref": "#/$defs/configContract"
+    },
+    "requires": {
+      "description": "Plugins this one needs beside it, at exact versions: a BepInEx plugin needs BepInEx, an unpacker needs `Steamless.API`.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "../../metadata/v1/common.schema.json#/$defs/pluginRef" }
+    },
+    "files": {
+      "description": "One file per operating system and architecture.",
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/file" }
+    },
+    "retired": {
+      "description": "Not to be chosen for anything new. What already names it keeps working — an assignment is pinned, and pulling a version out from under it would change an install nobody touched.",
+      "type": "boolean",
+      "default": false
+    },
+    "retiredReason": { "type": "string" },
+    "notes": { "description": "Markdown.", "type": "string" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "hook" } } },
+      "then": { "required": ["abi", "manifestSha256"] },
+      "else": { "not": { "anyOf": [{ "required": ["abi"] }, { "required": ["hosts"] }, { "required": ["manifestSha256"] }] } }
+    },
+    {
+      "if": { "properties": { "kind": { "enum": ["unpacker", "library"] } } },
+      "then": {
+        "not": { "required": ["config"] },
+        "properties": { "files": { "items": { "properties": { "architecture": { "const": "il" } } } } }
+      }
+    },
+    {
+      "if": { "properties": { "retired": { "const": true } }, "required": ["retired"] },
+      "then": { "required": ["retiredReason"] }
+    }
+  ],
+  "$defs": {
+    "file": {
+      "type": "object",
+      "required": ["os", "architecture", "fileName", "size", "sha256", "blake3"],
+      "additionalProperties": false,
+      "properties": {
+        "os": { "$ref": "../../metadata/v1/common.schema.json#/$defs/platform" },
+        "architecture": {
+          "description": "`il` for a pure .NET assembly, which runs on any architecture; listed once, under the operating system it was published for.",
+          "enum": ["x86", "x64", "arm64", "il"]
+        },
+        "fileName": { "$ref": "../../metadata/v1/common.schema.json#/$defs/fileName" },
+        "size": { "type": "integer", "minimum": 1 },
+        "sha256": {
+          "description": "What a download, or a file an administrator supplies, is checked against.",
+          "$ref": "../../metadata/v1/common.schema.json#/$defs/sha256"
+        },
+        "blake3": {
+          "description": "The same file by BLAKE3, which a host's chunk store already computes for whatever it holds.",
+          "$ref": "../../metadata/v1/common.schema.json#/$defs/blake3"
+        },
+        "downloads": { "$ref": "../../metadata/v1/common.schema.json#/$defs/downloads" }
+      }
+    },
+    "configContract": {
+      "description": "Deliberately small: what the native side can honour and a generated form can show. One level of nested object, arrays of scalars only.",
+      "type": "object",
+      "required": ["type", "properties"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "object" },
+        "properties": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/fieldName" },
+          "additionalProperties": {
+            "oneOf": [{ "$ref": "#/$defs/scalarField" }, { "$ref": "#/$defs/arrayField" }, { "$ref": "#/$defs/objectField" }]
+          }
+        },
+        "required": { "$ref": "#/$defs/requiredNames" }
+      }
+    },
+    "fieldName": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+    "requiredNames": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/fieldName" } },
+    "labels": {
+      "description": "What every field may carry for the form: a title, the author's explanation shown under it, and examples — the first is the input's placeholder.",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "examples": { "type": "array" }
+      }
+    },
+    "scalarField": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["string", "integer", "number", "boolean"] },
+        "default": { "type": ["string", "number", "boolean"] },
+        "enum": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": ["string", "number"] } },
+        "minimum": { "type": "number" },
+        "maximum": { "type": "number" },
+        "minLength": { "type": "integer", "minimum": 0 },
+        "maxLength": { "type": "integer", "minimum": 0 },
+        "pattern": { "type": "string", "format": "regex" },
+        "x-stoker-widget": {
+          "description": "How a form shows a string: as several lines, as a path, as hex bytes. There is no secret widget — the configuration is written in plain text into the game's folder.",
+          "enum": ["multiline", "path", "hex"]
+        }
+      },
+      "$ref": "#/$defs/labels",
+      "unevaluatedProperties": false
+    },
+    "arrayField": {
+      "type": "object",
+      "required": ["type", "items"],
+      "properties": {
+        "type": { "const": "array" },
+        "items": {
+          "type": "object",
+          "required": ["type"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "enum": ["string", "integer", "number", "boolean"] },
+            "enum": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": ["string", "number"] } },
+            "minimum": { "type": "number" },
+            "maximum": { "type": "number" },
+            "minLength": { "type": "integer", "minimum": 0 },
+            "maxLength": { "type": "integer", "minimum": 0 },
+            "pattern": { "type": "string", "format": "regex" }
+          }
+        },
+        "default": { "type": "array" }
+      },
+      "$ref": "#/$defs/labels",
+      "unevaluatedProperties": false
+    },
+    "objectField": {
+      "type": "object",
+      "required": ["type", "properties"],
+      "properties": {
+        "type": { "const": "object" },
+        "properties": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/fieldName" },
+          "additionalProperties": {
+            "oneOf": [{ "$ref": "#/$defs/scalarField" }, { "$ref": "#/$defs/arrayField" }]
+          }
+        },
+        "required": { "$ref": "#/$defs/requiredNames" }
+      },
+      "$ref": "#/$defs/labels",
+      "unevaluatedProperties": false
+    }
+  }
+}

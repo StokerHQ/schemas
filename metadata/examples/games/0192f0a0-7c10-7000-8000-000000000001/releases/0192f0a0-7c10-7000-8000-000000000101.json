@@ -61,8 +61,8 @@
         }
       ],
       "dependencies": [
-        { "runtime": "vcredist-10-x86" },
-        { "runtime": "directx-jun2010", "optional": true }
+        { "runtime": "example-runtime-x86" },
+        { "runtime": "example-media-runtime", "optional": true }
       ],
       "selectionGroups": [
         { "key": "language", "prompt": "Language", "mode": "pickOne" }
@@ -77,7 +77,7 @@
             {
               "kind": "unpack",
               "file": "ExampleHexagon.exe",
-              "unpacker": { "key": "org.example.steamless.variant31", "version": "3.1.0" },
+              "unpacker": { "key": "org.example.unpacker.variant31", "version": "3.1.0.5" },
               "fromBlake3": "9999999999999999999999999999999999999999999999999999999999999999",
               "toBlake3": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
             }
