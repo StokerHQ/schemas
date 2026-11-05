@@ -264,6 +264,7 @@ index/v1/                         compiled from the above on every change, never
 | `plugins/<key>/<version>.yaml` | `plugins/v1/version.schema.json` |
 | `index/v1/plugins.json.zst`, `index/v1/plugins/<key>.json` | `plugins/v1/index.schema.json` (the second: its `$defs/pluginDocument`) |
 | `index/v1/timestamp.json` | `plugins/v1/timestamp.schema.json` |
+| `stoker-plugin.yaml` in a plugin's own repository | `plugins/v1/plugin-project.schema.json` — which plugin it builds, for which targets, against which release of the plugin SDK (StokerHQ/plugin-sdk), pinned by version and SHA-256 |
 
 **Kinds**, by where the code runs — which is what decides how much trust it takes: `hook` (native code a bootstrap loads
 inside a game), `mod` (files laid into a game for a mod loader, the loader included; says its `loader`), `integration`

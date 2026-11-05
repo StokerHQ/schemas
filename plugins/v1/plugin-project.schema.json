@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.stokerhq.app/plugins/v1/plugin-project.schema.json",
+  "title": "Stoker plugin project",
+  "description": "`stoker-plugin.yaml` at the root of a plugin's repository: which plugin it builds, for which targets, against which release of the Stoker plugin SDK (StokerHQ/plugin-sdk). The SDK is pinned by version and by the SHA-256 of its release zip, which a build fetches and checks (`stoker-registry sdk`); nothing of the SDK is copied into the repository. A repository of several plugins has one file per plugin folder.",
+  "type": "object",
+  "required": ["schemaVersion", "key", "kind", "sdk", "targets"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "$ref": "../../metadata/v1/common.schema.json#/$defs/schemaVersion" },
+    "key": {
+      "description": "The plugin's key, as its manifest and the registry name it.",
+      "$ref": "../../metadata/v1/common.schema.json#/$defs/pluginKey"
+    },
+    "kind": { "$ref": "plugin.schema.json#/$defs/kind" },
+    "sdk": {
+      "description": "The SDK release the plugin builds against: `stoker-plugin-sdk-<version>.zip` from the SDK's GitHub release `v<version>`, checked by `sha256` — which the release publishes beside the zip.",
+      "type": "object",
+      "required": ["version", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "version": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$" },
+        "sha256": { "$ref": "../../metadata/v1/common.schema.json#/$defs/sha256" }
+      }
+    },
+    "targets": {
+      "description": "One file per operating system and architecture, each built from `source` (and `resources`, a Windows .rc, when given) into `<name>-<os>-<architecture>.<dll|so>` — the asset names a release attaches them under. Every target of a version builds from the same source, so every file carries the same manifest.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["os", "architecture", "source", "name"],
+        "additionalProperties": false,
+        "properties": {
+          "os": { "enum": ["windows", "linux"] },
+          "architecture": { "enum": ["x86", "x64", "arm64"] },
+          "source": { "description": "The plugin's source file, from the repository root.", "$ref": "../../metadata/v1/common.schema.json#/$defs/relativePath" },
+          "resources": { "description": "A Windows resource script compiled in (files the plugin carries).", "$ref": "../../metadata/v1/common.schema.json#/$defs/relativePath" },
+          "name": { "description": "The library's base name.", "type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]*$" }
+        }
+      }
+    }
+  }
+}
