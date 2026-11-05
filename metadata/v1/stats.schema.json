@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.stokerhq.app/metadata/v1/stats.schema.json",
   "title": "Stoker metadata — stats",
-  "description": "`games/<id>/stats.json`: the stats a game keeps per player through its store's API, in the game's own order. Definitions only — every player's values are a Stoker instance's. Stores publish few of these (Steam's stat definitions live on Valve's partner backend, GOG has none), so most entries were observed in a running game and completed by somebody.",
+  "description": "`games/<slug>/stats.yaml`: the stats a game keeps per player through its store's API, in the game's own order. Definitions only — every player's values are a reader's own. Stores publish few of these (Steam's stat definitions live on Valve's partner backend, GOG has none), so most entries were observed in a running game and completed by somebody.",
   "type": "object",
   "required": ["schemaVersion", "gameId"],
   "additionalProperties": false,

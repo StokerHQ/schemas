@@ -2,10 +2,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.stokerhq.app/metadata/v1/common.schema.json",
   "title": "Stoker metadata — shared definitions",
-  "description": "Types every document of the metadata repository uses. Not a document of its own. Enum values are camelCase names, never the numbers the database stores: a public format outlives the order of a C# enum.",
+  "description": "Types every document of the metadata repository uses. Not a document of its own. Enum values are camelCase names, never the numbers a program stores: a public format outlives the order of anybody's enum.",
   "$defs": {
     "schemaVersion": {
-      "description": "`<major>.<minor>`: the version of the format a document was written for. A minor version only adds — fields, enum values, kinds — and never changes what an existing field means, so a reader of an older minor reads a newer document of the same major. It ignores fields it does not know, and a value it does not know in a field that only describes (a provider, a tag kind, a definition's origin) it treats as absent; an entry for a platform it does not know is not for this host. Something it does not know that would change what is done to an install — a fix role, a step kind, an integration provider or action — it never skips silently: it treats that build as needing a newer Stoker. A reader refuses a major it does not know.",
+      "description": "`<major>.<minor>`: the version of the format a document was written for. v1 is still being developed and may change until the first recipe is published; from then on a minor version only adds — fields, enum values, kinds — and never changes what an existing field means, so a reader of an older minor reads a newer document of the same major. It ignores fields it does not know, and a value it does not know in a field that only describes (a provider, a tag kind, a store id kind, a definition's origin) it treats as absent; an entry for a platform it does not know is not for this host. Something it does not know that would change what is done to an install — a fix role, a step kind — it never skips silently: it treats that build as needing a newer reader. A reader refuses a major it does not know.",
       "type": "string",
       "pattern": "^1\\.(?:0|[1-9][0-9]*)$"
     },
@@ -14,16 +14,8 @@
       "type": "string",
       "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
     },
-    "sha256": {
-      "description": "SHA-256 of the bytes, lowercase hex.",
-      "type": "string",
-      "pattern": "^[0-9a-f]{64}$"
-    },
-    "blake3": {
-      "description": "BLAKE3-256 of the bytes, lowercase hex.",
-      "type": "string",
-      "pattern": "^[0-9a-f]{64}$"
-    },
+    "sha256": { "description": "SHA-256 of the bytes, lowercase hex.", "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "blake3": { "description": "BLAKE3-256 of the bytes, lowercase hex.", "type": "string", "pattern": "^[0-9a-f]{64}$" },
     "relativePath": {
       "description": "A path inside an install, relative to its root, with forward slashes. No leading slash or `~`, no backslash, no `:` (a drive, or an NTFS stream), no control character, no empty, `.` or `..` segment: the same rule the launcher applies before it touches a player's disk.",
       "type": "string",
@@ -69,7 +61,73 @@
     },
     "provider": {
       "description": "Where something came from: a store, or a database about games. `eshop` is Nintendo's (via titledb), `community` a contributor's own work.",
-      "enum": ["steam", "gog", "epic", "ubisoft", "eshop", "igdb", "steamGridDb", "pcGamingWiki", "mobyGames", "community"]
+      "enum": [
+        "steam",
+        "gog",
+        "epic",
+        "ubisoft",
+        "ea",
+        "amazon",
+        "battlenet",
+        "humble",
+        "itchio",
+        "eshop",
+        "igdb",
+        "steamGridDb",
+        "pcGamingWiki",
+        "mobyGames",
+        "community"
+      ]
+    },
+    "storeKey": {
+      "description": "A store by its key: `steam`, `gog`, `epic`, `ubisoft`, `ea`, `amazon`, `battlenet`, `humble`, `itchio`, `zoomplatform`, `eshop` — umu-database's names, with `epic` for its `egs` and `eshop` for Nintendo's. A key nobody has defined yet is allowed and kept: a reader ignores a store it does not know.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*$"
+    },
+    "storeIdKind": {
+      "description": "What kind of id a store id is, in that store's vocabulary (the README's table). **Reported** kinds are what a game's store SDK asks about, and what an install reports as owned: Steam `appId`; GOG `productId`; Epic `catalogItemId` (`EOS_Ecom_QueryOwnership`) and `entitlementName` (`EOS_Ecom_QueryEntitlements`); Ubisoft `productId`; eShop `titleId`. **Identity** kinds are what imports match by and a store's API addresses things by, never reported: Steam `packageId`, `depotId`; GOG `galaxyClientId`; Epic `appName`, `namespace`, `offerId`. A minor version adds kinds; a reader ignores one it does not know.",
+      "type": "string",
+      "pattern": "^[a-z][A-Za-z0-9]*$"
+    },
+    "storeId": {
+      "type": "object",
+      "required": ["kind", "id"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "$ref": "#/$defs/storeIdKind" },
+        "id": {
+          "description": "Always a string, numeric ids too — quoted in YAML — so every store's ids have one shape and no reader parses a 64-bit id into a float.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "label": {
+          "description": "Which id this is, for a person: \"Standard edition\", \"Steam edition\", \"Pre-order bonus item\". A store that numbers editions, bundles and the items inside them separately gives an item many ids; the label is how they are told apart.",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "storeEntry": {
+      "description": "One store's ids for one item — a game, a DLC or an edition — and which of them an install reports as owned. Never synthesised: a made-up AppId is indistinguishable from a real one and, the first time it reaches anything that talks to Valve, means a different game.",
+      "type": "object",
+      "required": ["ids"],
+      "additionalProperties": false,
+      "properties": {
+        "ids": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/storeId" } },
+        "installed": {
+          "description": "Which of the reported-kind ids an install reports as owned: `all` of them, or only the ones listed, each as `<kind>:<id>`. An empty list reports none: the ids are known, and none is to be claimed. Identity kinds are never reported, whatever is said here. A game's ids are reported by every install of it, a DLC's by an install that carries it, an edition's by an install that carries every DLC it includes.",
+          "oneOf": [{ "const": "all" }, { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][A-Za-z0-9]*:.+$" } }],
+          "default": "all"
+        }
+      }
+    },
+    "storeIds": {
+      "description": "Every store's ids for one item, by store key. How anybody holding a copy from a store finds its entry, so a `(store, kind, id)` belongs to one item in the whole repository — except kinds several items share by nature, such as Epic's `namespace`.",
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "$ref": "#/$defs/storeKey" },
+      "additionalProperties": { "$ref": "#/$defs/storeEntry" }
     },
     "source": {
       "description": "Provenance: which provider a value was read from, and where. Kept so a value can be fetched again and checked, never to be served to players.",
@@ -93,22 +151,34 @@
     "platform": {
       "description": "One operating system or console. The desktop and mobile systems run a build directly; every other value is a console, run through an emulator.",
       "enum": [
-        "windows", "linux", "macOS", "android",
-        "nes", "snes", "nintendo64", "gameBoy", "gameBoyColor", "gameBoyAdvance", "nintendoDS", "nintendo3DS",
-        "gameCube", "wii", "wiiU", "switch",
-        "playStation", "playStation2", "playStation3", "playStation4", "playStationPortable", "playStationVita",
-        "megaDrive", "dreamcast"
+        "windows",
+        "linux",
+        "macOS",
+        "android",
+        "nes",
+        "snes",
+        "nintendo64",
+        "gameBoy",
+        "gameBoyColor",
+        "gameBoyAdvance",
+        "nintendoDS",
+        "nintendo3DS",
+        "gameCube",
+        "wii",
+        "wiiU",
+        "switch",
+        "playStation",
+        "playStation2",
+        "playStation3",
+        "playStation4",
+        "playStationPortable",
+        "playStationVita",
+        "megaDrive",
+        "dreamcast"
       ]
     },
-    "desktopPlatform": {
-      "enum": ["windows", "linux", "macOS"]
-    },
-    "platforms": {
-      "type": "array",
-      "minItems": 1,
-      "uniqueItems": true,
-      "items": { "$ref": "#/$defs/platform" }
-    },
+    "desktopPlatform": { "enum": ["windows", "linux", "macOS"] },
+    "platforms": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/platform" } },
     "architecture": {
       "description": "The instruction set a build's binaries are for. `any` is the honest answer when nothing determined it.",
       "enum": ["any", "x86", "x64", "arm64", "arm32"]
@@ -119,7 +189,7 @@
       "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$"
     },
     "pluginKey": {
-      "description": "A plugin's identity: the reverse-DNS id its manifest declares (`org.example.filename-redirect`), or for a .NET assembly its name in lower case (`steamless.variant31.x64`, `sharpdisasm`).",
+      "description": "A plugin's identity: the reverse-DNS id its manifest declares (`org.example.filename-redirect`), or for a .NET assembly its name in lower case (`bepinex.core`).",
       "type": "string",
       "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
     },
@@ -129,14 +199,11 @@
       "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)(?:\\.(?:0|[1-9][0-9]*))?(?:-[0-9A-Za-z]+(?:\\.[0-9A-Za-z]+)*)?$"
     },
     "pluginRef": {
-      "description": "A plugin of the plugin catalogue (`https://schemas.stokerhq.app/plugins/v1/`) — a hook plugin, a mod loader, a mod, an unpacker — pinned to one version. Pinned, because a newer version must never change what an existing entry installs. By key and version only, never by where the catalogue is kept, so the catalogue can live in a repository of its own.",
+      "description": "A plugin of the plugin catalogue (`https://schemas.stokerhq.app/plugins/v1/`) — a hook plugin, a mod loader, a mod, a library — pinned to one version. Pinned, because a newer version must never change what an existing entry installs. By key and version only, never by where the catalogue is kept, so the catalogue can live in a repository of its own.",
       "type": "object",
       "required": ["key", "version"],
       "additionalProperties": false,
-      "properties": {
-        "key": { "$ref": "#/$defs/pluginKey" },
-        "version": { "type": "string", "minLength": 1 }
-      }
+      "properties": { "key": { "$ref": "#/$defs/pluginKey" }, "version": { "type": "string", "minLength": 1 } }
     },
     "downloads": {
       "description": "Where the file's publisher offers it, in order of preference. Never a copy somebody else made: the repository redistributes nobody's binaries. Whatever comes back is checked against the file's hash, which alone decides whether it is the file; when every link is dead, an administrator supplies the file by hand and the hash still decides.",
@@ -152,23 +219,29 @@
             "type": "object",
             "required": ["format", "path"],
             "additionalProperties": false,
-            "properties": {
-              "format": { "enum": ["zip", "tarGz", "sevenZip"] },
-              "path": { "$ref": "#/$defs/relativePath" }
-            }
+            "properties": { "format": { "enum": ["zip", "tarGz", "sevenZip"] }, "path": { "$ref": "#/$defs/relativePath" } }
           }
         }
       }
     },
     "pluginAssignment": {
-      "description": "A plugin applied to a game, or to one of its releases.",
+      "description": "A plugin from the plugin catalogue applied to a game, a release or one build, with the copies it is for — a hook plugin a loader runs inside the game, a mod laid into it. Placed and combined exactly as fixes and hooks are (the README's combine rule): written at the widest level it holds for, narrowed by `when`, switched off below by an assignment of the same plugin with `enabled: false`. Pinned to one version, so one release can keep a version while a later one moves on.",
       "type": "object",
       "required": ["plugin"],
       "additionalProperties": false,
       "properties": {
         "plugin": { "$ref": "#/$defs/pluginRef" },
+        "when": {
+          "description": "The copies the plugin is for. Absent: every copy the assignment is listed for.",
+          "$ref": "#/$defs/fixCondition"
+        },
+        "atLaunch": {
+          "description": "The plugin has to be in place before the game's own code runs — it patches or catches something the game does at start, before it would load the library a plugin is otherwise loaded beside. A reader then starts the game with its plugins already loaded, as it does for a hook with `atLaunch`.",
+          "type": "boolean",
+          "default": false
+        },
         "enabled": {
-          "description": "False only on a release: switches off the game's assignment of the same plugin for that release.",
+          "description": "False on a release or a build: switches off the assignment of the same plugin from a level above for those copies.",
           "type": "boolean",
           "default": true
         },
@@ -180,24 +253,134 @@
         "notes": { "type": "string" }
       }
     },
-    "image": {
-      "description": "An image, inlined. The bytes are in the document, so a clone of the repository is the complete record — no CDN that a delisting can take down. `sha256` is of the decoded bytes, so a reader can check them and an instance can store each image once.",
+    "archiveRef": {
+      "description": "A file kept in the presentation archive (`StokerHQ/Archive`), by its SHA-256 — never the bytes. The archive stores every file once under its hash, with where it came from; descriptions, artwork, screenshots and achievement icons are archived so they outlive the store pages they came from, and kept apart from the recipes so a request to remove one picture removes one archived file and leaves every recipe as it was. A reader fetches the file from an archive mirror and checks the hash; when no mirror has it, from `source.url`.",
+      "allOf": [{ "$ref": "#/$defs/archiveFields" }],
+      "unevaluatedProperties": false
+    },
+    "archiveFields": {
+      "description": "What every archive reference has; `archiveRef`, `archiveImage` and an archived text close it.",
       "type": "object",
-      "required": ["mediaType", "width", "height", "sha256", "data"],
+      "required": ["sha256", "contentType", "size", "source"],
+      "properties": {
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "contentType": {
+          "description": "`image/webp`, `image/png`, `image/jpeg`, `image/gif`; `text/plain; charset=utf-8` for a description in plain text (paragraphs separated by a blank line); `text/html; charset=utf-8` for a long description kept as its store publishes it, which a reader sanitises before showing.",
+          "enum": ["image/webp", "image/png", "image/jpeg", "image/gif", "text/plain; charset=utf-8", "text/html; charset=utf-8"]
+        },
+        "size": { "type": "integer", "minimum": 1 },
+        "source": {
+          "description": "Where the archived bytes were taken from, and when — what lets a file be traced, fetched again, and removed precisely if its owner asks.",
+          "$ref": "#/$defs/source"
+        }
+      }
+    },
+    "archiveImage": {
+      "description": "An archived picture, with its pixel size so a reader can lay it out before fetching it.",
+      "allOf": [{ "$ref": "#/$defs/archiveFields" }],
+      "properties": {
+        "contentType": { "enum": ["image/webp", "image/png", "image/jpeg", "image/gif"] },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      },
+      "required": ["width", "height"],
+      "unevaluatedProperties": false
+    },
+    "localizedArchiveText": {
+      "description": "One archived text in one or more languages, keyed by language tag: each language's text is its own archived file.",
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "$ref": "#/$defs/languageTag" },
+      "additionalProperties": {
+        "allOf": [{ "$ref": "#/$defs/archiveFields" }],
+        "properties": { "contentType": { "const": "text/plain; charset=utf-8" } },
+        "unevaluatedProperties": false
+      }
+    },
+    "localizedArchiveDescription": {
+      "description": "A long description in one or more languages, each its own archived file: plain text, or HTML as the store publishes it — Steam's and GOG's are HTML, with lists, headings and the media they embed. HTML is kept as published and sanitised by a reader before it is shown.",
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "$ref": "#/$defs/languageTag" },
+      "additionalProperties": {
+        "allOf": [{ "$ref": "#/$defs/archiveFields" }],
+        "properties": { "contentType": { "enum": ["text/plain; charset=utf-8", "text/html; charset=utf-8"] } },
+        "unevaluatedProperties": false
+      }
+    },
+    "presentation": {
+      "description": "What a store page shows of a game, a DLC or an edition — its words and pictures — archived (`archiveRef`) rather than written here. The facts about it (developers, publishers, release date) are in the item's `storePage`; nothing here changes what is done to an install, so a reader that shows nothing ignores the whole block.",
+      "type": "object",
       "additionalProperties": false,
       "properties": {
-        "mediaType": { "enum": ["image/webp", "image/png", "image/jpeg"] },
-        "width": { "type": "integer", "minimum": 1 },
-        "height": { "type": "integer", "minimum": 1 },
-        "sha256": { "$ref": "#/$defs/sha256" },
-        "data": {
-          "description": "The image file, base64 (RFC 4648, padded, no line breaks).",
-          "type": "string",
-          "contentEncoding": "base64",
-          "minLength": 4,
-          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+        "shortDescription": { "$ref": "#/$defs/localizedArchiveText" },
+        "description": {
+          "description": "Unbounded: Steam's run past 9,000 characters, and an archived file has no cap that would decide how much of a real description is lost.",
+          "$ref": "#/$defs/localizedArchiveDescription"
         },
-        "source": { "$ref": "#/$defs/source" }
+        "artwork": {
+          "description": "The slots a library draws an item with, by the names Steam's library cache uses.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "capsule": {
+              "description": "Portrait box art, 2:3 (600×900 on Steam) — what a library grid shows.",
+              "$ref": "#/$defs/archiveImage"
+            },
+            "header": { "description": "The wide store header (460×215 on Steam).", "$ref": "#/$defs/archiveImage" },
+            "hero": { "description": "The wide banner behind a game's page.", "$ref": "#/$defs/archiveImage" },
+            "logo": { "description": "The transparent wordmark laid over the hero.", "$ref": "#/$defs/archiveImage" },
+            "icon": { "description": "The small square icon a store or a desktop shortcut uses.", "$ref": "#/$defs/archiveImage" }
+          }
+        },
+        "reel": {
+          "description": "Screenshots and trailers in the order the store page shows them — for Steam every trailer in its order, then every screenshot in its order.",
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "required": ["kind", "image"],
+                "additionalProperties": false,
+                "properties": { "kind": { "const": "screenshot" }, "image": { "$ref": "#/$defs/archiveImage" } }
+              },
+              {
+                "description": "A trailer. Video is kept by reference: its source and the hash of each track as a reader stores it (fragmented MP4), not in the archive — tens of megabytes each make it a question of storage, not of format.",
+                "type": "object",
+                "required": ["kind", "source"],
+                "additionalProperties": false,
+                "properties": {
+                  "kind": { "const": "trailer" },
+                  "name": { "type": "string" },
+                  "highlight": {
+                    "description": "The store marks it as one to lead with; recorded, never used to reorder.",
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "sourceKey": { "description": "The store's own id for the trailer, so a re-import recognises it.", "type": "string" },
+                  "source": { "$ref": "#/$defs/source" },
+                  "thumbnail": { "$ref": "#/$defs/archiveImage" },
+                  "duration": { "description": "Seconds.", "type": "number", "exclusiveMinimum": 0 },
+                  "video": { "$ref": "#/$defs/track" },
+                  "audio": { "description": "Absent for a silent trailer.", "$ref": "#/$defs/track" }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "track": {
+      "description": "One track of a trailer as a reader stores it: fragmented MP4.",
+      "type": "object",
+      "required": ["sha256", "size", "codec"],
+      "additionalProperties": false,
+      "properties": {
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "size": { "type": "integer", "minimum": 1 },
+        "codec": { "description": "RFC 6381 codec string: `av01.0.08M.08`, `mp4a.40.2`.", "type": "string", "minLength": 1 },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
       }
     },
     "contentFingerprint": {
@@ -220,11 +403,7 @@
       "type": "object",
       "required": ["path", "size", "blake3"],
       "additionalProperties": false,
-      "properties": {
-        "path": { "$ref": "#/$defs/relativePath" },
-        "size": { "type": "integer", "minimum": 0 },
-        "blake3": { "$ref": "#/$defs/blake3" }
-      }
+      "properties": { "path": { "$ref": "#/$defs/relativePath" }, "size": { "type": "integer", "minimum": 0 }, "blake3": { "$ref": "#/$defs/blake3" } }
     },
     "fileCheck": {
       "description": "One file of an install as it has to be: there with these bytes, or not there at all.",
@@ -233,39 +412,41 @@
           "type": "object",
           "required": ["path", "blake3"],
           "additionalProperties": false,
-          "properties": {
-            "path": { "$ref": "#/$defs/relativePath" },
-            "blake3": { "$ref": "#/$defs/blake3" },
-            "size": { "type": "integer", "minimum": 0 }
-          }
+          "properties": { "path": { "$ref": "#/$defs/relativePath" }, "blake3": { "$ref": "#/$defs/blake3" }, "size": { "type": "integer", "minimum": 0 } }
         },
         {
           "type": "object",
           "required": ["path", "absent"],
           "additionalProperties": false,
-          "properties": {
-            "path": { "$ref": "#/$defs/relativePath" },
-            "absent": { "const": true }
-          }
+          "properties": { "path": { "$ref": "#/$defs/relativePath" }, "absent": { "const": true } }
         }
       ]
     },
     "fixCondition": {
-      "description": "What a copy has to be for a statement about it to hold. Every part has to: each file as stated, and one of the platforms.",
+      "description": "What a copy has to be for a fix or a plugin to be for it. Every part given has to hold: each file as stated, one of the platforms, one of the architectures, a release in the range. A fix or a plugin is written once, at the widest level it holds for, and narrowed here — never copied into every release. Never by store: a copy is its files, so where two stores' copies need different things their files differ, and a file check or a build of its own says so.",
       "type": "object",
       "minProperties": 1,
       "additionalProperties": false,
       "properties": {
         "platforms": { "$ref": "#/$defs/platforms" },
-        "files": {
-          "type": "array",
-          "minItems": 1,
-          "items": { "$ref": "#/$defs/fileCheck" }
-        }
+        "files": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/fileCheck" } },
+        "releases": {
+          "description": "Which releases of the game, by release id, compared by the releases' `order`: from `from` (included) up to `before` (not included), or exactly the ones in `only`. A release added later inside a range is covered without an edit. A copy that matches no release of the repository holds no release condition.",
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": false,
+          "properties": {
+            "from": { "$ref": "#/$defs/uuid" },
+            "before": { "$ref": "#/$defs/uuid" },
+            "only": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/uuid" } }
+          },
+          "not": { "anyOf": [{ "required": ["only", "from"] }, { "required": ["only", "before"] }] }
+        },
+        "architectures": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/architecture" } }
       }
     },
     "fix": {
-      "description": "One thing that is done to a copy so it runs under Stoker, or that a player can choose to have done: a patch, a mod, a language, the publisher's own setup. An ordered list of steps, applied together or not at all. Fixes are applied in order — a build's own first, then its release's, then its game's, each list in its order — and each fix's `when` is checked against the files as they are when its turn comes, so a fix written for an unpacked executable finds it unpacked.",
+      "description": "One thing that is done to a copy so it runs, or that a player can choose to have done: a patch, a mod, a language, the publisher's own setup. An ordered list of steps, applied together or not at all. Fixes are applied in order — a build's own first, then its release's, then its game's, each list in its order — and each fix's `when` is checked against the files as they are when its turn comes.",
       "type": "object",
       "required": ["id", "role", "name"],
       "properties": {
@@ -274,10 +455,18 @@
           "$ref": "#/$defs/uuid"
         },
         "role": {
-          "description": "`setup`: the publisher's own install steps. `languagePack`: what a language needs. `dlc`: what a DLC needs. `unpacked`: the build's executables with a store's DRM wrapper removed — `unpack` steps only, which every instance carries out on its own copy and checks against the result recorded here. `patch`: a fix — a community patch, a publisher hotfix, a compatibility tweak. `mod`: content somebody added.",
-          "enum": ["setup", "languagePack", "dlc", "unpacked", "patch", "mod"]
+          "description": "`setup`: the publisher's own install steps. `languagePack`: what a language needs. `patch`: a fix — a community patch, a publisher hotfix, a compatibility tweak. `mod`: content somebody added. There is no DLC role: how a DLC reaches a copy depends on where the copy came from.",
+          "enum": ["setup", "languagePack", "patch", "mod"]
         },
-        "name": { "description": "What a person reads in a list: \"German\", \"Widescreen fix\".", "type": "string", "minLength": 1 },
+        "name": {
+          "description": "What a person reads in a list: \"German\", \"Widescreen fix\".",
+          "type": "string",
+          "minLength": 1
+        },
+        "language": {
+          "description": "For a `languagePack`: the language it is (BCP-47) — what Stoker picks a pack by from the player's language. Required there, and not given on any other role.",
+          "$ref": "#/$defs/languageTag"
+        },
         "when": {
           "description": "The copies the fix is for. Absent: every copy it is listed for. A fix whose `when` does not hold is not for this copy and is left out — which is how one fix written against an executable's bytes serves every copy, from every store or disk, that has those bytes.",
           "$ref": "#/$defs/fixCondition"
@@ -286,10 +475,7 @@
           "description": "What shows the fix is already in place, so a copy somebody patched by hand is not patched twice.",
           "$ref": "#/$defs/fixCondition"
         },
-        "steps": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/step" }
-        },
+        "steps": { "type": "array", "items": { "$ref": "#/$defs/step" } },
         "optional": {
           "description": "The copy works without it, so a player may leave it out. Not optional means applied whenever its `when` holds.",
           "type": "boolean",
@@ -306,11 +492,7 @@
           "default": true
         },
         "unavailableReason": { "type": "string" },
-        "enabled": {
-          "description": "False to keep the finding without applying it.",
-          "type": "boolean",
-          "default": true
-        },
+        "enabled": { "description": "False to keep the finding without applying it.", "type": "boolean", "default": true },
         "links": {
           "description": "Where the fix is documented or comes from, for a person reading the entry.",
           "type": "array",
@@ -318,47 +500,50 @@
             "type": "object",
             "required": ["label", "url"],
             "additionalProperties": false,
-            "properties": {
-              "label": { "type": "string", "minLength": 1 },
-              "url": { "type": "string", "format": "uri" }
-            }
+            "properties": { "label": { "type": "string", "minLength": 1 }, "url": { "type": "string", "format": "uri" } }
           }
         },
         "notes": { "description": "Markdown.", "type": "string" }
       },
       "allOf": [
-        {
-          "if": { "properties": { "available": { "const": false } }, "required": ["available"] },
-          "then": { "required": ["unavailableReason"] }
-        }
+        { "if": { "properties": { "available": { "const": false } }, "required": ["available"] }, "then": { "required": ["unavailableReason"] } },
+        { "if": { "properties": { "role": { "const": "languagePack" } }, "required": ["role"] }, "then": { "required": ["language"] }, "else": { "not": { "required": ["language"] } } }
       ]
     },
     "gameFix": {
       "description": "A fix listed on a game or a release rather than on one build: a patch or a mod for whichever copies its `when` holds for.",
       "$ref": "#/$defs/fix",
-      "properties": {
-        "role": { "enum": ["patch", "mod"] },
-        "steps": {
-          "description": "Unpacking is a build's own `unpacked` fix, never a game's or a release's.",
-          "minItems": 1,
-          "items": { "properties": { "kind": { "not": { "const": "unpack" } } } }
-        }
-      },
+      "properties": { "role": { "enum": ["patch", "mod"] }, "steps": { "minItems": 1 } },
       "required": ["steps"],
       "unevaluatedProperties": false
     },
     "step": {
-      "description": "One thing a fix does. Most change the install once, when the fix is applied; `environment`, `arguments` and `windowsCompatibility` apply every time the game starts. A minor version adds kinds; a reader that meets one it does not know treats the build as needing a newer Stoker rather than leave the step out. `run`, `firewall`, `registry` and `environment` reach beyond the install's own files, so a contributor's step is held to the install (see each); only a step read from the publisher's own install script (`source`) may go further, because the publisher's installer would have done the same.",
+      "description": "One thing a fix does. Most change the install once, when the fix is applied; `environment`, `arguments` and `windowsCompatibility` apply every time the game starts. A minor version adds kinds; a reader that meets one it does not know treats the build as needing a newer reader rather than leave the step out. `run`, `firewall`, `registry` and `environment` reach beyond the install's own files, so a contributor's step is held to the install (see each); only a step read from the publisher's own install script (`source`) may go further, because the publisher's installer would have done the same.\n\nEvery step kind has a class, `x-stokerhq-class` on its definition: `unattended` steps a reader may apply on its own, `optIn` steps only with the player's consent for that fix — they run programs, write outside the install's files, or change executable bytes. Every reader draws the line in the same place.",
       "type": "object",
       "required": ["kind"],
       "properties": {
         "kind": {
-          "enum": ["files", "delete", "rename", "iniSet", "hexEdit", "binaryPatch", "unpack", "registry", "firewall", "run", "runOnUninstall", "environment", "arguments", "windowsCompatibility"]
+          "enum": [
+            "files",
+            "download",
+            "delete",
+            "rename",
+            "iniSet",
+            "hexEdit",
+            "binaryPatch",
+            "registry",
+            "firewall",
+            "run",
+            "runOnUninstall",
+            "environment",
+            "arguments",
+            "windowsCompatibility"
+          ]
         }
       },
       "allOf": [
         { "if": { "properties": { "kind": { "const": "files" } } }, "then": { "$ref": "#/$defs/filesStep" } },
-        { "if": { "properties": { "kind": { "const": "unpack" } } }, "then": { "$ref": "#/$defs/unpackStep" } },
+        { "if": { "properties": { "kind": { "const": "download" } } }, "then": { "$ref": "#/$defs/downloadStep" } },
         { "if": { "properties": { "kind": { "const": "delete" } } }, "then": { "$ref": "#/$defs/deleteStep" } },
         { "if": { "properties": { "kind": { "const": "rename" } } }, "then": { "$ref": "#/$defs/renameStep" } },
         { "if": { "properties": { "kind": { "const": "iniSet" } } }, "then": { "$ref": "#/$defs/iniSetStep" } },
@@ -374,6 +559,7 @@
     },
     "filesStep": {
       "description": "Lay a set of files over the install; a path both have is replaced. The files are named by fingerprint — never stored here.",
+      "x-stokerhq-class": "unattended",
       "type": "object",
       "required": ["kind", "content"],
       "additionalProperties": false,
@@ -384,8 +570,48 @@
         "notes": { "type": "string" }
       }
     },
+    "downloadStep": {
+      "description": "Fetch one file from where its publisher offers it, check it by hash, and lay it into the install — an archive's contents instead of the archive when `extract` is given. How a mod, a community server or a tool that is published as a release gets into an install without the repository holding a byte of it: the file is the publisher's, exactly as published. `optIn`: it brings somebody else's code into the install.",
+      "x-stokerhq-class": "optIn",
+      "type": "object",
+      "required": ["kind", "file"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "download" },
+        "file": {
+          "description": "The file as its publisher offers it. Whatever a link returns is checked against `sha256`, which alone decides whether it is the file; when every link is dead, a player supplies the file by hand and the hash still decides.",
+          "type": "object",
+          "required": ["name", "size", "sha256", "downloads"],
+          "additionalProperties": false,
+          "properties": {
+            "name": { "$ref": "#/$defs/fileName" },
+            "size": { "type": "integer", "minimum": 1 },
+            "sha256": { "$ref": "#/$defs/sha256" },
+            "downloads": { "$ref": "#/$defs/downloads" }
+          }
+        },
+        "extract": {
+          "description": "The file is an archive; lay what is in it. Absent: the file itself is laid into `into`.",
+          "type": "object",
+          "required": ["format"],
+          "additionalProperties": false,
+          "properties": {
+            "format": { "enum": ["zip", "tarGz", "sevenZip"] },
+            "from": { "description": "The folder in the archive whose contents are taken — a release's own top folder, `Peacock-v8.10.1`. Absent: the archive's root.", "$ref": "#/$defs/relativePath" },
+            "exclude": { "description": "Paths below `from` that are not laid. Leave a published file out only when it would get in the way; one that is merely unused stays, so the install holds the release as published.", "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/relativePath" } }
+          }
+        },
+        "into": { "description": "The folder it goes into. Absent: the install root.", "$ref": "#/$defs/relativePath" },
+        "result": {
+          "description": "What the step lays down, as it lands — paths from the install root. A reader checks it after the step, and one that already holds these files (a store of its own) may lay them without fetching.",
+          "$ref": "#/$defs/contentFingerprint"
+        },
+        "notes": { "type": "string" }
+      }
+    },
     "deleteStep": {
       "description": "Remove files — an intro video that crashes, a launcher stub that must not run. A path that is not there is not an error.",
+      "x-stokerhq-class": "unattended",
       "type": "object",
       "required": ["kind", "paths"],
       "additionalProperties": false,
@@ -396,6 +622,7 @@
       }
     },
     "renameStep": {
+      "x-stokerhq-class": "unattended",
       "type": "object",
       "required": ["kind", "from", "to"],
       "additionalProperties": false,
@@ -408,6 +635,7 @@
     },
     "iniSetStep": {
       "description": "Set one key of an INI-style file, creating the file, section and key when they are missing and keeping everything else as it was.",
+      "x-stokerhq-class": "unattended",
       "type": "object",
       "required": ["kind", "file", "key", "value"],
       "additionalProperties": false,
@@ -422,6 +650,7 @@
     },
     "hexEditStep": {
       "description": "Change bytes of one file in place — the shape most widescreen and FOV fixes are published in. Each edit checks the bytes it replaces and refuses a file that has others there; the fix's `when` says which file, by hash, the offsets are for.",
+      "x-stokerhq-class": "optIn",
       "type": "object",
       "required": ["kind", "file", "edits"],
       "additionalProperties": false,
@@ -438,7 +667,11 @@
             "properties": {
               "offset": { "type": "integer", "minimum": 0 },
               "from": { "description": "The bytes found there, lowercase hex.", "type": "string", "pattern": "^(?:[0-9a-f]{2})+$" },
-              "to": { "description": "The bytes written, lowercase hex; as many as `from`.", "type": "string", "pattern": "^(?:[0-9a-f]{2})+$" }
+              "to": {
+                "description": "The bytes written, lowercase hex; as many as `from`.",
+                "type": "string",
+                "pattern": "^(?:[0-9a-f]{2})+$"
+              }
             }
           }
         },
@@ -447,6 +680,7 @@
     },
     "binaryPatchStep": {
       "description": "Turn one file into another with a binary diff. The diff is named by hash, never stored here.",
+      "x-stokerhq-class": "optIn",
       "type": "object",
       "required": ["kind", "file", "format", "patch", "fromBlake3", "toBlake3"],
       "additionalProperties": false,
@@ -458,30 +692,10 @@
           "type": "object",
           "required": ["size", "blake3"],
           "additionalProperties": false,
-          "properties": {
-            "size": { "type": "integer", "minimum": 1 },
-            "blake3": { "$ref": "#/$defs/blake3" }
-          }
+          "properties": { "size": { "type": "integer", "minimum": 1 }, "blake3": { "$ref": "#/$defs/blake3" } }
         },
         "fromBlake3": { "description": "The file before; any other is refused.", "$ref": "#/$defs/blake3" },
         "toBlake3": { "description": "The file after; a result that hashes otherwise is discarded.", "$ref": "#/$defs/blake3" },
-        "notes": { "type": "string" }
-      }
-    },
-    "unpackStep": {
-      "description": "Remove a store's DRM wrapper (SteamStub and its kind) from one executable with an unpacker plugin, on the instance's own copy — the unpacked file is never in the repository, and neither is the unpacker. The result has to hash as recorded, or it is discarded and the fix fails: an unpacker that produced something else produced something nobody checked.",
-      "type": "object",
-      "required": ["kind", "file", "unpacker", "fromBlake3", "toBlake3"],
-      "additionalProperties": false,
-      "properties": {
-        "kind": { "const": "unpack" },
-        "file": { "$ref": "#/$defs/relativePath" },
-        "unpacker": {
-          "description": "The unpacker plugin, from the plugin catalogue, and its version: a different version may unpack to different bytes.",
-          "$ref": "#/$defs/pluginRef"
-        },
-        "fromBlake3": { "description": "The wrapped executable; any other is refused.", "$ref": "#/$defs/blake3" },
-        "toBlake3": { "description": "The unpacked executable.", "$ref": "#/$defs/blake3" },
         "notes": { "type": "string" }
       }
     },
@@ -491,12 +705,17 @@
     },
     "registryStep": {
       "description": "Write one registry value. Windows only. A contributor's step writes only below the game's own key — `HKEY_CURRENT_USER\\Software\\<vendor>\\…` or `HKEY_LOCAL_MACHINE\\Software\\<vendor>\\…` (`WOW6432Node` allowed), never under `Microsoft`, `Classes`, `Policies`, `RegisteredApplications` or `Clients`, which is where autostarts, file associations and policy live. A step read from an install script (`source`) writes what the publisher's installer would have.",
+      "x-stokerhq-class": "optIn",
       "type": "object",
       "required": ["kind", "key", "name", "valueKind", "value"],
       "additionalProperties": false,
       "properties": {
         "kind": { "const": "registry" },
-        "key": { "description": "The full key, hive included, spelt out: `HKEY_LOCAL_MACHINE\\Software\\Publisher\\Game`.", "type": "string", "minLength": 1 },
+        "key": {
+          "description": "The full key, hive included, spelt out: `HKEY_LOCAL_MACHINE\\Software\\Publisher\\Game`.",
+          "type": "string",
+          "minLength": 1
+        },
         "name": { "type": "string" },
         "valueKind": { "enum": ["string", "dword"] },
         "value": { "$ref": "#/$defs/expandedString" },
@@ -505,14 +724,25 @@
           "$ref": "#/$defs/languageTag"
         },
         "source": { "$ref": "#/$defs/installScriptSource" },
-        "enabled": { "description": "False to keep a step read from a script without carrying it out.", "type": "boolean", "default": true },
+        "enabled": {
+          "description": "False to keep a step read from a script without carrying it out.",
+          "type": "boolean",
+          "default": true
+        },
         "notes": { "type": "string" }
       },
       "if": { "not": { "required": ["source"] } },
-      "then": { "properties": { "key": { "pattern": "^[Hh][Kk][Ee][Yy]_(?:[Cc][Uu][Rr][Rr][Ee][Nn][Tt]_[Uu][Ss][Ee][Rr]|[Ll][Oo][Cc][Aa][Ll]_[Mm][Aa][Cc][Hh][Ii][Nn][Ee])\\\\[Ss][Oo][Ff][Tt][Ww][Aa][Rr][Ee]\\\\(?:[Ww][Oo][Ww]6432[Nn][Oo][Dd][Ee]\\\\)?(?!(?:[Mm][Ii][Cc][Rr][Oo][Ss][Oo][Ff][Tt]|[Cc][Ll][Aa][Ss][Ss][Ee][Ss]|[Pp][Oo][Ll][Ii][Cc][Ii][Ee][Ss]|[Ww][Oo][Ww]6432[Nn][Oo][Dd][Ee]|[Rr][Ee][Gg][Ii][Ss][Tt][Ee][Rr][Ee][Dd][Aa][Pp][Pp][Ll][Ii][Cc][Aa][Tt][Ii][Oo][Nn][Ss]|[Cc][Ll][Ii][Ee][Nn][Tt][Ss])(?:\\\\|$))[^\\\\]+(?:\\\\[^\\\\]+)*$" } } }
+      "then": {
+        "properties": {
+          "key": {
+            "pattern": "^[Hh][Kk][Ee][Yy]_(?:[Cc][Uu][Rr][Rr][Ee][Nn][Tt]_[Uu][Ss][Ee][Rr]|[Ll][Oo][Cc][Aa][Ll]_[Mm][Aa][Cc][Hh][Ii][Nn][Ee])\\\\[Ss][Oo][Ff][Tt][Ww][Aa][Rr][Ee]\\\\(?:[Ww][Oo][Ww]6432[Nn][Oo][Dd][Ee]\\\\)?(?!(?:[Mm][Ii][Cc][Rr][Oo][Ss][Oo][Ff][Tt]|[Cc][Ll][Aa][Ss][Ss][Ee][Ss]|[Pp][Oo][Ll][Ii][Cc][Ii][Ee][Ss]|[Ww][Oo][Ww]6432[Nn][Oo][Dd][Ee]|[Rr][Ee][Gg][Ii][Ss][Tt][Ee][Rr][Ee][Dd][Aa][Pp][Pp][Ll][Ii][Cc][Aa][Tt][Ii][Oo][Nn][Ss]|[Cc][Ll][Ii][Ee][Nn][Tt][Ss])(?:\\\\|$))[^\\\\]+(?:\\\\[^\\\\]+)*$"
+          }
+        }
+      }
     },
     "firewallStep": {
       "description": "Let one program through Windows Firewall. Windows only. A contributor's step names a program inside the install; only a step read from an install script (`source`) may name one elsewhere.",
+      "x-stokerhq-class": "optIn",
       "type": "object",
       "required": ["kind", "name", "executable"],
       "additionalProperties": false,
@@ -530,6 +760,7 @@
     },
     "runStep": {
       "description": "Run a program once the files are in place (`run`) or before they are removed (`runOnUninstall`): the publisher's own setup step, or a fix's patcher. Off by default for an `.exe` with no switches, which would put a UI in front of the player. A contributor's step runs a program inside the install — one a `files` step laid there, typically; only a step read from an install script (`source`) may run one elsewhere.",
+      "x-stokerhq-class": "optIn",
       "type": "object",
       "required": ["kind", "name", "executable"],
       "additionalProperties": false,
@@ -552,6 +783,7 @@
     },
     "environmentStep": {
       "description": "Set an environment variable every time the game starts. Not one that makes a runtime load code the variable names (`LD_PRELOAD`, `DYLD_*`, `COR_PROFILER`, `DOTNET_STARTUP_HOOKS`, `JAVA_TOOL_OPTIONS` and their kind): code a fix needs goes into the install, where a hash says what it is.",
+      "x-stokerhq-class": "unattended",
       "type": "object",
       "required": ["kind", "name", "value"],
       "additionalProperties": false,
@@ -560,7 +792,9 @@
         "name": {
           "type": "string",
           "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
-          "not": { "pattern": "^(?:[Ll][Dd]_[Pp][Rr][Ee][Ll][Oo][Aa][Dd]|[Ll][Dd]_[Aa][Uu][Dd][Ii][Tt]|[Cc][Oo][Rr]_[Ee][Nn][Aa][Bb][Ll][Ee]_[Pp][Rr][Oo][Ff][Ii][Ll][Ii][Nn][Gg]|[Cc][Oo][Rr][Ee][Cc][Ll][Rr]_[Ee][Nn][Aa][Bb][Ll][Ee]_[Pp][Rr][Oo][Ff][Ii][Ll][Ii][Nn][Gg]|[Dd][Oo][Tt][Nn][Ee][Tt]_[Ss][Tt][Aa][Rr][Tt][Uu][Pp]_[Hh][Oo][Oo][Kk][Ss]|[Jj][Aa][Vv][Aa]_[Tt][Oo][Oo][Ll]_[Oo][Pp][Tt][Ii][Oo][Nn][Ss]|_[Jj][Aa][Vv][Aa]_[Oo][Pp][Tt][Ii][Oo][Nn][Ss]|[Jj][Dd][Kk]_[Jj][Aa][Vv][Aa]_[Oo][Pp][Tt][Ii][Oo][Nn][Ss]|[Nn][Oo][Dd][Ee]_[Oo][Pp][Tt][Ii][Oo][Nn][Ss]|[Pp][Yy][Tt][Hh][Oo][Nn][Ss][Tt][Aa][Rr][Tt][Uu][Pp]|[Pp][Ee][Rr][Ll]5[Oo][Pp][Tt]|[Rr][Uu][Bb][Yy][Oo][Pp][Tt]|[Dd][Yy][Ll][Dd]_.*|[Cc][Oo][Rr]_[Pp][Rr][Oo][Ff][Ii][Ll][Ee][Rr].*|[Cc][Oo][Rr][Ee][Cc][Ll][Rr]_[Pp][Rr][Oo][Ff][Ii][Ll][Ee][Rr].*|[Dd][Oo][Tt][Nn][Ee][Tt]_[Pp][Rr][Oo][Ff][Ii][Ll][Ee][Rr].*)$" }
+          "not": {
+            "pattern": "^(?:[Ll][Dd]_[Pp][Rr][Ee][Ll][Oo][Aa][Dd]|[Ll][Dd]_[Aa][Uu][Dd][Ii][Tt]|[Cc][Oo][Rr]_[Ee][Nn][Aa][Bb][Ll][Ee]_[Pp][Rr][Oo][Ff][Ii][Ll][Ii][Nn][Gg]|[Cc][Oo][Rr][Ee][Cc][Ll][Rr]_[Ee][Nn][Aa][Bb][Ll][Ee]_[Pp][Rr][Oo][Ff][Ii][Ll][Ii][Nn][Gg]|[Dd][Oo][Tt][Nn][Ee][Tt]_[Ss][Tt][Aa][Rr][Tt][Uu][Pp]_[Hh][Oo][Oo][Kk][Ss]|[Jj][Aa][Vv][Aa]_[Tt][Oo][Oo][Ll]_[Oo][Pp][Tt][Ii][Oo][Nn][Ss]|_[Jj][Aa][Vv][Aa]_[Oo][Pp][Tt][Ii][Oo][Nn][Ss]|[Jj][Dd][Kk]_[Jj][Aa][Vv][Aa]_[Oo][Pp][Tt][Ii][Oo][Nn][Ss]|[Nn][Oo][Dd][Ee]_[Oo][Pp][Tt][Ii][Oo][Nn][Ss]|[Pp][Yy][Tt][Hh][Oo][Nn][Ss][Tt][Aa][Rr][Tt][Uu][Pp]|[Pp][Ee][Rr][Ll]5[Oo][Pp][Tt]|[Rr][Uu][Bb][Yy][Oo][Pp][Tt]|[Dd][Yy][Ll][Dd]_.*|[Cc][Oo][Rr]_[Pp][Rr][Oo][Ff][Ii][Ll][Ee][Rr].*|[Cc][Oo][Rr][Ee][Cc][Ll][Rr]_[Pp][Rr][Oo][Ff][Ii][Ll][Ee][Rr].*|[Dd][Oo][Tt][Nn][Ee][Tt]_[Pp][Rr][Oo][Ff][Ii][Ll][Ee][Rr].*)$"
+          }
         },
         "value": { "$ref": "#/$defs/expandedString" },
         "mode": {
@@ -574,6 +808,7 @@
     },
     "argumentsStep": {
       "description": "Add arguments to the command line every time the game starts, after the launch's own.",
+      "x-stokerhq-class": "unattended",
       "type": "object",
       "required": ["kind", "append"],
       "additionalProperties": false,
@@ -586,6 +821,7 @@
     },
     "windowsCompatibilityStep": {
       "description": "Start one executable under Windows compatibility layers — `WINXPSP3`, `HIGHDPIAWARE`, `DISABLEDXMAXIMIZEDWINDOWEDMODE` — as the Compatibility tab would. Windows only.",
+      "x-stokerhq-class": "unattended",
       "type": "object",
       "required": ["kind", "executable", "layers"],
       "additionalProperties": false,
@@ -596,24 +832,25 @@
         "notes": { "type": "string" }
       }
     },
-    "hooks": {
-      "description": "Declarative export hooks for Stoker's bootstrap. Written verbatim beside every patched bootstrap as `stoker_hooks.json`, whose parser refuses unknown fields — so this definition is as strict as that parser. `{ \"hooks\": [] }` explicitly disables hooks.",
+    "hook": {
+      "description": "One declarative hook on a DLL's named export: return a value instead, forward to it, or call it and look at — or override — its result; optionally rewrite one string argument. Placed on a game, a release or a build and combined like fixes and plugins (the README's combine rule): written at the widest level it holds for, narrowed by `when`, switched off below by `disableHooks`. A reader that applies hooks applies at most 16 to one copy, the most its loader takes.",
       "type": "object",
-      "required": ["hooks"],
+      "required": ["id", "module", "function", "behavior"],
       "additionalProperties": false,
       "properties": {
-        "hooks": {
-          "type": "array",
-          "maxItems": 16,
-          "items": { "$ref": "#/$defs/hookRule" }
-        }
-      }
-    },
-    "hookRule": {
-      "type": "object",
-      "required": ["module", "function", "behavior"],
-      "additionalProperties": false,
-      "properties": {
+        "id": {
+          "description": "Stable, so a release or a build can switch the hook off (`disableHooks`) and a report can name it.",
+          "$ref": "#/$defs/uuid"
+        },
+        "when": {
+          "description": "The copies the hook is for. Absent: every copy it is listed for.",
+          "$ref": "#/$defs/fixCondition"
+        },
+        "atLaunch": {
+          "description": "The hook has to be in place before the game's own code runs — it catches something the game does at start, before it would load the library the hook lives beside. A reader then starts the game with its hooks already loaded.",
+          "type": "boolean",
+          "default": false
+        },
         "module": { "description": "The loaded DLL's file name.", "$ref": "#/$defs/fileName" },
         "function": { "description": "A named export of it.", "type": "string", "minLength": 1 },
         "behavior": {
@@ -628,12 +865,19 @@
         },
         "override": { "description": "Intercept only: substitute `value` for the result.", "type": "boolean" },
         "log": { "type": "boolean" },
-        "param": { "description": "1-based index of a string argument to rewrite; 0 disables rewriting.", "type": "integer", "minimum": 0, "maximum": 12 },
+        "param": {
+          "description": "1-based index of a string argument to rewrite; 0 disables rewriting.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 12
+        },
         "wide": { "description": "The string is UTF-16 rather than narrow ASCII.", "type": "boolean" },
         "mode": { "enum": ["full", "substring", "filename"] },
         "match": { "type": "string", "maxLength": 256 },
         "replace": { "type": "string", "maxLength": 256 },
-        "when": {
+        "argCount": { "type": "integer", "minimum": 0, "maximum": 12 },
+        "callingConvention": { "enum": ["cdecl", "stdcall"] },
+        "guards": {
           "description": "Guards on arguments' low 32 bits; all must match before the string is read.",
           "type": "array",
           "maxItems": 4,
@@ -641,24 +885,14 @@
             "type": "object",
             "required": ["param", "equals"],
             "additionalProperties": false,
-            "properties": {
-              "param": { "type": "integer", "minimum": 1, "maximum": 12 },
-              "equals": { "type": "integer", "minimum": 0, "maximum": 4294967295 }
-            }
+            "properties": { "param": { "type": "integer", "minimum": 1, "maximum": 12 }, "equals": { "type": "integer", "minimum": 0, "maximum": 4294967295 } }
           }
         },
-        "argCount": { "type": "integer", "minimum": 0, "maximum": 12 },
-        "callingConvention": { "enum": ["cdecl", "stdcall"] }
+        "notes": { "type": "string" }
       },
       "allOf": [
-        {
-          "if": { "properties": { "behavior": { "const": "intercept" } } },
-          "then": { "required": ["argCount"] }
-        },
-        {
-          "if": { "required": ["when"] },
-          "then": { "required": ["argCount"] }
-        }
+        { "if": { "properties": { "behavior": { "const": "intercept" } } }, "then": { "required": ["argCount"] } },
+        { "if": { "required": ["guards"] }, "then": { "required": ["argCount"] } }
       ]
     }
   }

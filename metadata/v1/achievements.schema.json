@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.stokerhq.app/metadata/v1/achievements.schema.json",
   "title": "Stoker metadata — achievements",
-  "description": "`games/<id>/achievements.json`: the definitions a game's achievements are kept against, in the game's own order. Definitions only — whose unlocks those are is a Stoker instance's, and never leaves it. A game's DLC have no list of their own: the stores keep a DLC's achievements in its game's.",
+  "description": "`games/<slug>/achievements.yaml`: the definitions a game's achievements are kept against, in the game's own order, with their names and descriptions in every language known — the text a player sees beside an unlock. Only the icons are archived (`archiveImage`). Definitions only — whose unlocks those are is a reader's own, and never in the repository. A game's DLC have no list of their own: the stores keep a DLC's achievements in its game's.",
   "type": "object",
   "required": ["schemaVersion", "gameId"],
   "additionalProperties": false,
@@ -41,7 +41,7 @@
           "minLength": 1
         },
         "aliases": {
-          "description": "Other names the game grants this same achievement under — as another store's API names it. Watch_Dogs on Steam grants through Ubisoft's API by number, which Stoker's loader reports as `uplay_<n>`; listing `uplay_1` here makes that grant this achievement. A name belongs to one achievement of a game, and is never also an `apiName`.",
+          "description": "Other names the game grants this same achievement under — as another store's API names it. A game that grants through Ubisoft's API by number is reported as `uplay_<n>`; listing `uplay_1` here makes that grant this achievement. A name belongs to one achievement of a game, and is never also an `apiName`.",
           "type": "array",
           "uniqueItems": true,
           "items": { "type": "string", "minLength": 1 }
@@ -55,11 +55,11 @@
         },
         "icon": {
           "description": "The unlocked icon.",
-          "$ref": "common.schema.json#/$defs/image"
+          "$ref": "common.schema.json#/$defs/archiveImage"
         },
         "iconLocked": {
           "description": "The store's own locked icon. Steam ships a separate grey one, and a greyscale filter over the colour icon does not look like it.",
-          "$ref": "common.schema.json#/$defs/image"
+          "$ref": "common.schema.json#/$defs/archiveImage"
         },
         "origin": { "$ref": "common.schema.json#/$defs/definitionOrigin" }
       }

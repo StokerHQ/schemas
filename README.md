@@ -1,244 +1,332 @@
 # Stoker schemas
 
-JSON Schemas for the formats Stoker shares between hosts, published at
-`https://schemas.stokerhq.app/`.
+JSON Schemas for the formats Stoker shares, published at `https://schemas.stokerhq.app/`.
 
-## Metadata — v1
+## Recipes (metadata) — v1
 
-JSON Schemas (draft 2020-12) for the Stoker metadata repository: a public git repository that any
-Stoker host reads to find games, their store pages, achievements, how their builds are laid out and
-started, and the fixes, mods and quirks they need to run under Stoker.
+The format of the recipes repository: a public repository of **how to get a game working with Stoker**. A recipe
+holds what Stoker needs to make a game work and cannot work out from the game's files itself: which store ids are the
+game and its DLC, which build is which, how it starts, the fixes, plugins and hooks a version needs, the runtimes it
+needs, where it saves. The game's store page words and pictures are archived beside it, as a convenience: they were
+tedious to find. Stoker comes to it with one of two questions — *I have game Y from store X*, or *I have this
+folder* — and the format answers both.
+
+**v1 is still being developed.** Until the first recipe is published any field may change; from then on v1 only
+grows by minor versions that add (see "Versions").
 
 ```
 metadata/
   v1/                          the schemas, served as https://schemas.stokerhq.app/metadata/v1/<file>
-  examples/                    a small, fictional metadata repository that validates
+  examples/                    a small, fictional recipes repository that validates
 plugins/
   v1/                          the plugin catalogue's schemas: https://schemas.stokerhq.app/plugins/v1/<file>
-validate.py                    checks a metadata repository and a plugin catalogue against them
+validate.py                    checks a recipes repository and a plugin catalogue against them
 ```
 
-### Layout of a metadata repository
+### Layout of a recipes repository
 
 ```
 games/
-  <game id>/
-    game.json                  identity, external ids, store page, tags, cloud saves, settings, plugins, fixes
-    media.json                 artwork and the media reel (images inlined)
-    achievements.json          achievement definitions, each with the other names it is granted under
-    stats.json                 stat definitions
-    leaderboards.json          leaderboard definitions
-    dlc/
-      <dlc id>.json            one DLC: external ids, store page, artwork, the other DLC it needs
-    releases/
-      <release id>.json        one version, its fixes, and every known build of it with the build's own fixes
+  <slug>/
+    game.yaml                  identity, every store's ids, DLC, editions, saves, the game's fixes, presentation refs
+    achievements.yaml          achievement definitions with their names and descriptions, icons by archive ref
+    stats.yaml                 stat definitions
+    leaderboards.yaml          leaderboard definitions
+    builds/
+      <name>.yaml              one release (a version), every known build of it, and their fixes
 runtimes/
-  <key>.json                   one runtime machines need (Visual C++, DirectX) and its known copies
+  <key>.yaml                   one runtime machines need (Visual C++, DirectX) and its known copies
 plugins/                       the plugin catalogue, for now (see "Plugin catalogue")
 ```
 
 | Document | Schema |
 |---|---|
-| `game.json` | `metadata/v1/game.schema.json` |
-| `media.json` | `metadata/v1/media.schema.json` |
-| `achievements.json` | `metadata/v1/achievements.schema.json` |
-| `stats.json` | `metadata/v1/stats.schema.json` |
-| `leaderboards.json` | `metadata/v1/leaderboards.schema.json` |
-| `dlc/*.json` | `metadata/v1/dlc.schema.json` |
-| `releases/*.json` | `metadata/v1/release.schema.json` |
-| `runtimes/*.json` | `metadata/v1/runtime.schema.json` |
+| `game.yaml` | `metadata/v1/game.schema.json` |
+| `achievements.yaml` | `metadata/v1/achievements.schema.json` |
+| `stats.yaml` | `metadata/v1/stats.schema.json` |
+| `leaderboards.yaml` | `metadata/v1/leaderboards.schema.json` |
+| `builds/*.yaml` | `metadata/v1/release.schema.json` |
+| `runtimes/*.yaml` | `metadata/v1/runtime.schema.json` |
 
-`metadata/v1/common.schema.json` holds the types the others share. Only `game.json` is required.
+`metadata/v1/common.schema.json` holds the types the others share. Only `game.yaml` is required.
 
-**DLC are not games.** A DLC has no releases, nothing to start and no achievements of its own (the
-stores keep those in its game's list); it is what a store sells — a name, ids, a page, artwork — and
-lives in its game's folder. Whether a build carries it, and with which files, is that build's `dlc`
-fix, which names it by `dlcId`.
+**YAML, read as JSON.** Recipes are written in YAML, for comments and for diffs people can read; the schemas
+validate the parsed document. Only what JSON can say is read: `true`, `false`, `null`, plain decimal numbers, and
+strings — `no` stays a word and `2013-01-14` stays text. So **quote every value that looks like a number but is
+text**: store ids, hashes made only of digits, versions like `"1.0"`, `schemaVersion`. A key that appears twice in
+one mapping is refused.
 
-**Runtimes are described once.** A build names a runtime by key (`vcredist-14-x64`); everything about
-installing it once per machine — the probe that says it is there, the silent switches, the exit codes
-that mean success — is in `runtimes/<key>.json`, with the copies games bundle, recognised by their
-installer's hash wherever a game put it.
+**DLC and editions live in `game.yaml`.** A DLC entry is a name, its store ids and what it requires — a few lines. A
+recipe never says how a DLC gets into a copy or whether a build has it: that depends on where the copy came from
+(Steam's depots, Epic's install tags, GOG's installers) and is the reader's own knowledge of an install.
+Achievements, stats and leaderboards have files of their own because they run to hundreds of entries and change on
+their own.
 
-### Rules the format is built on
+### The rules the format is built on
 
-- **Ids are UUIDs, minted once and never changed.** A folder is named after its game's id, a release
-  file after its release's id. A rename changes `name`, not the path. External ids — the stores'
-  (Steam, GOG, Epic, Ubisoft, eShop) and the databases' (IGDB, PCGamingWiki, SteamGridDB, MobyGames,
-  Wikidata) — are attributes, never keys: a game may have none, or all of them.
-- **A build is a set of files.** The Steam depots, the GOG installer and a copy somebody had on disk
-  are three builds of one release when their files differ, and one build with several `sources` when
-  they are the same files — a DRM-free game often is. No two builds of a game share a fingerprint, a
-  set of markers or a source.
-- **One file per thing that changes on its own.** A new version is a new release file, never an edit
-  of an old one; a new description does not diff next to megabytes of images.
-- **Only what is true for every instance.** Nothing an instance decided for itself is here: hidden
-  or archived titles, locked fields, custom tags, Steam tracking, and nothing about any player —
-  unlocks, stats, scores, saves, play time.
-- **Images are inlined, trailers are referenced.** Images are base64 with their SHA-256, so a clone
-  is the complete record with no CDN to lose. A trailer is tens of megabytes; its tracks are recorded
-  by source and hash, and an instance fetches and checks them.
-- **The game's files are never here.** A build is described by a *fingerprint* of its files
-  (`contentFingerprint`, algorithm `stoker-tree-1`, computed from the BLAKE3 every Stoker manifest
-  already holds per file), by marker files and by its store ids. An instance matches its own copy to
-  an entry by them. Fixes, settings and plugin assignments are applied to a copy; the stored build is
-  never edited.
-- **Values are names, not numbers.** Enums are camelCase strings; the database's integers are an
-  implementation detail of one program.
-- **Languages are BCP 47.** Prose is a map of language tag to text, so translations are additions.
+- **Every game, DLC and edition has its own id**, a UUID minted once and never changed: the anchor every store's
+  ids map onto. Not a title (titles change) and not one store's id (an anchor built from one store makes every other
+  store second-class). The folder is named by a readable `slug`, which the game repeats; renaming the folder is a
+  move, and the id stays.
+- **Store ids are how an item is found.** Every item lists its ids per store, as many as the store has (`stores`).
+  A `(store, kind, id)` belongs to one item in the whole repository.
+- **Only what Stoker cannot read from the files.** Stoker finds a build's store SDKs, its DRM wrapper, its anti-cheat
+  and its engine in the files at ingest, so a recipe does not repeat them; it records what no file says — the
+  interface versions a GOG port's Steam layer answers with (`steamworks`), how the game starts, what a version needs.
+  The format carries no instruction to replace a store's file or remove a wrapper: what Stoker does about those is
+  its own rule, not a recipe's.
+- **Words and pictures are archived, not written here** (except achievements' names and descriptions), as a
+  convenience. See "Presentation".
+- **A build is a set of files.** The Steam depots, the GOG installer and a copy somebody had on disk are three builds
+  of one release when their files differ, and one build with several `sources` when they are the same files. No two
+  builds of a game share a fingerprint, a set of markers or a source.
+- **The game's files are never here.** A build is described by a *fingerprint* of its files (`stoker-tree-1`), by
+  marker files and by its store ids.
+- **Values are names, not numbers.** Enums are camelCase strings.
+- **Languages are BCP 47.** Text is a map of language tag to text, so translations are additions.
 - **Dates are as precise as they are known** (`2017`, `2017-02`, `2017-02-24`).
 
-### How a copy finds its fixes
+### Store ids
 
-A Stoker instance holds a copy of a game from some store, or from somebody's disk. To make it run:
+```yaml
+stores:
+  ubisoft:
+    ids:
+      - { kind: productId, id: "22",  label: Standard edition }
+      - { kind: productId, id: "71",  label: Steam edition }
+      - { kind: productId, id: "543", label: Pre-order bonus item }
+    installed: ["productId:22", "productId:71"]   # default: all
+```
 
-1. **Match it to a build.** First by its `sources` — a store's ids for those files; for Steam the
-   depot manifests, never the build id alone, which every depot of a branch shares — then by the
-   fingerprint of all its files (`content`), then by `markers`: a few files nothing writes to, such
-   as the executables, which still match when configs, saves or a hand-applied patch changed the
-   rest. A copy that matches nothing still gets its game's fixes.
-2. **Collect the fixes, in order:** the build's own (`setup`, `languagePack`, `dlc`, `unpacked`,
-   and patches only this copy needs), then the release's, then the game's — leaving out those a
-   release or build lists in `disableFixes`, the optional ones nobody chose, and the answers to a
-   `selectionGroup` nobody picked.
-3. **Apply each fix whose `when` holds**, checked against the files as they are at that point, and
-   skip one whose `appliedWhen` already holds. A fix's steps — `files`, `delete`, `rename`,
-   `iniSet`, `hexEdit`, `binaryPatch`, `unpack`, `registry`, `firewall`, `run` — change the install
-   once; `environment`, `arguments` and `windowsCompatibility` apply every time the game starts,
-   for every launch or for the one whose `key` they name.
+Kinds, per store (umu-database's store names, with `epic` for its `egs` and `eshop` for Nintendo's):
 
-`unpack` runs an unpacker plugin over the instance's own copy and keeps the result only when it hashes
-as recorded; it appears only in a build's `unpacked` fix, which comes first, so a game's fix written
-against the unpacked executable finds it unpacked.
+| Store | Reported — what a game's SDK asks about | Identity — what imports match and APIs address by |
+|---|---|---|
+| `steam` | `appId` | `packageId`, `depotId` |
+| `gog` | `productId` | `galaxyClientId` |
+| `epic` | `catalogItemId` (`EOS_Ecom_QueryOwnership`), `entitlementName` (`EOS_Ecom_QueryEntitlements`) | `appName`, `namespace` (shared by a game's items), `offerId` |
+| `ubisoft` | `productId` | — |
+| `eshop` | `titleId` | — |
 
-Values the installing machine fills in — registry values, `iniSet` values, `run` and `arguments`
-arguments, `environment` values — may hold `%INSTALLDIR%`, the install's root in the machine's own
-form; `%%` is a literal `%`, and any other `%` is refused.
+**What an install reports as owned**, for a reader that answers a store SDK: the base game's reported ids for every
+install of it; a DLC's for an install that carries it; an edition's for an install that carries every DLC it
+includes. Per item and store, `installed` says whether that is **all** of the reported-kind ids or **only the listed
+subset** — how an edition, bundle or reward id is kept for matching without being claimed. Identity kinds are never
+reported. Other stores (`ea`, `amazon`, `battlenet`, `humble`, `itchio`, …) and kinds may be listed; the validator
+warns that it does not know them, and readers ignore them.
 
-### Trust
+**Editions** are the base game plus the DLC in `includes`. Matching a copy by an edition's id means the base game and
+everything it includes. Content only one edition gets is a DLC that edition includes.
 
-Hosts apply what this repository says to their players' machines, so what a fix may do is limited
-by the schema, not by review alone:
+**DLC bundles** — a season pass, a collection — are DLC with `includes` of their own: owning one means owning the DLC
+it includes, and its reported ids are reported by an install that carries every one of them.
+
+### Saves
+
+A save entry is a **glob that matches files**, starting at a placeholder: `*` and `?` match within one folder name, `**`
+any number of folders, none included. `<winAppData>/Game/*.sav` is the folder's own `.sav` files; `<winAppData>/Game/**/*`
+is everything in it and in every folder below. Matched case-insensitively. Entries carry `tags` (`save`, `config`),
+`platforms` (absent: every system; never a store), `origin`, `enabled`, and their order is the order Stoker lists a
+player's files in. `platforms` are the systems the build is for, not the machine it runs on: **a Windows build under
+Wine or Proton on Linux reads its `windows` entries, with the `<win…>` placeholders inside its prefix**
+(`drive_c/users/<user>/AppData/…`, Stoker's per-player prefix). A `<win…>` placeholder on any other system names no folder.
+
+| Placeholder | Folder | Steam Auto-Cloud root |
+|---|---|---|
+| `<base>` | the install | `gameinstall` |
+| `<winDocuments>` | Documents | `WinMyDocuments` |
+| `<winAppData>` | AppData\Roaming | `WinAppDataRoaming` |
+| `<winLocalAppData>` | AppData\Local | `WinAppDataLocal` |
+| `<winLocalAppDataLow>` | AppData\LocalLow | `WinAppDataLocalLow` |
+| `<winSavedGames>` | Saved Games (a known folder that can be moved) | `WinSavedGames` |
+| `<home>` | the home folder | `LinuxHome`, `MacHome` |
+| `<xdgData>`, `<xdgConfig>` | `$XDG_DATA_HOME`, `$XDG_CONFIG_HOME` | `LinuxXdgDataHome`, `LinuxXdgConfigHome` |
+| `<macAppSupport>`, `<macDocuments>` | `~/Library/Application Support`, `~/Documents` | `MacAppSupport`, `MacDocuments` |
+| `<ubisoftConnect>` | Ubisoft Connect's install folder, where some Ubisoft games write saves themselves | — |
+| `<root>`, `<game>`, `<storeGameId>`, `<osUserName>`, `<winPublic>`, `<winProgramData>`, `<winDir>` | the store's library folder, the install folder's name, the store's id for the game, the user's name, and Windows' Public, ProgramData and Windows folders | — |
+
+Inside a path, a store's account ids: `<steamId64>` (Steam's `{64BitSteamID}`), `<steamAccountId>` (`{Steam3AccountID}`),
+`<ubisoftAccountId>` (`{UbisoftAccountID}`), and `<storeUserId>` for "any store's user id". A Stoker cloud-save rule
+converts exactly — root, path, file pattern and recursive flag become the glob (recursive is `**/`), its platforms
+`when.os`, its source `origin`, whether it is switched off `enabled`, its place in the list the entry's.
+
+### Versions of a game
+
+A **release** is a version (`builds/<name>.yaml`; `order`, higher is newer), a **build** one set of its files. A build
+is its files — its fingerprint (`content`), else its `markers` — and never how or where a copy was obtained: the same
+files from Steam, GOG, Epic or a disk are one build with one set of fixes. `sources` are optional store ids for those
+files, a shortcut for a reader that has a store's metadata; no condition asks for a store. When two releases ship
+exactly the same files, the build is defined once and the other release names it, `builds: [{ build: <id> }]`.
+
+**Markers** are what a copy somebody changed is matched by: pick files that identify the version and that nothing
+writes to — the main executable, and, where the executables do not change between versions (an engine's launcher), the
+largest file that does, such as the main data archive. No two builds may have the same set.
+
+**Language packs** are `languagePack` fixes with the `language` (BCP 47) Stoker picks them by from the player's
+language, answering a build's `selectionGroups`. **Fixes,
+plugins and hooks** sit on the game, a release or a build. Each is written once, at the widest level it holds for, and
+narrowed by its `when`:
+
+- `files`: files as stated, by hash or absent;
+- `platforms`, `architectures`;
+- `releases`: `{ from, before }` — a range by release id, compared by `order`, `before` not included — or `{ only }`.
+  A release added later inside a range is covered.
+
+**The combine rule**, one for fixes, plugins and hooks alike:
+
+1. collect the build's, then the release's, then the game's;
+2. drop those a level below switches off — fixes by `disableFixes`, hooks by `disableHooks`, a plugin by an assignment
+   of the same plugin with `enabled: false` (an assignment of the same plugin lower down also replaces the one above,
+   version and config included);
+3. drop those whose `when` does not hold, and optional fixes nobody chose and answers to a `selectionGroup` nobody
+   picked;
+4. apply the rest build-level first, each fix's `when` checked against the files as they are when its turn comes,
+   skipping a fix whose `appliedWhen` already holds.
+
+A **plugin** (`plugins`) is a catalogue plugin pinned by key and version, with its `config`: a hook plugin a loader
+runs inside the game, a mod laid into it. A **hook** (`hooks`) is a declarative hook on a DLL's named export —
+return a value instead, forward, or intercept and override its result, optionally rewrite one string argument
+(`guards` check argument values first) — with an `id`, and `atLaunch` when it has to be in place before the game's
+own code runs.
+
+A copy that matches no build of the repository — modified, or an unknown patch — gets only the game's entries whose
+`when` holds; their file checks are what make that safe. A build is matched by its fingerprint, then by its markers; `sources`, where given, let a reader with a store's metadata
+match first (for Steam the depot manifests, never the build id alone).
+
+### Steps, and what a reader may do on its own
+
+A fix's steps change the install once (`files`, `download`, `delete`, `rename`, `iniSet`, `hexEdit`, `binaryPatch`,
+`registry`, `firewall`, `run`, `runOnUninstall`), or apply every time the game starts (`environment`, `arguments`,
+`windowsCompatibility`). `download` is how something published as a release — a mod, a community server — gets into an
+install without the repository holding a byte of it: the publisher's file by URL and SHA-256, an archive's `from`
+folder laid `into` the install, and the `result` fingerprint a reader checks afterwards. Each kind has a class,
+`x-stokerhq-class` on its definition:
+
+| Class | Kinds | Meaning |
+|---|---|---|
+| `unattended` | `files`, `delete`, `rename`, `iniSet`, `environment`, `arguments`, `windowsCompatibility` | a reader may apply it on its own |
+| `optIn` | `download`, `hexEdit`, `binaryPatch`, `registry`, `firewall`, `run`, `runOnUninstall` | only with the player's consent for that fix: it brings somebody else's code into the install, runs a program, writes outside the install's files, or changes executable bytes |
+
+What a step may do is limited by the schema, not by review alone:
 
 - `run` and `firewall` name a program inside the install;
-- `registry` writes below the game's own `Software\<vendor>` key, never under `Microsoft`,
-  `Classes`, `Policies`, `RegisteredApplications` or `Clients`;
-- `environment` never sets a variable that makes a runtime load code (`LD_PRELOAD`, `DYLD_*`,
-  `COR_PROFILER`, `DOTNET_STARTUP_HOOKS`, `JAVA_TOOL_OPTIONS` and their kind);
-- `delete`, `rename`, `iniSet`, `hexEdit` and the rest touch paths inside the install only.
+- `registry` writes below the game's own `Software\<vendor>` key, never under `Microsoft`, `Classes`, `Policies`,
+  `RegisteredApplications` or `Clients`;
+- `environment` never sets a variable that makes a runtime load code (`LD_PRELOAD`, `DYLD_*`, `COR_PROFILER`,
+  `DOTNET_STARTUP_HOOKS`, `JAVA_TOOL_OPTIONS` and their kind);
+- every path is inside the install.
 
-A step read from the publisher's own install script (`source`) is exempt from the first two, because
-the publisher's installer would have done the same. Code a fix needs goes into the install as files,
-named by hash.
+A step read from the publisher's own install script (`source`) is exempt from the first two, because the publisher's
+installer would have done the same. Code a fix needs goes into the install as files, named by hash. Values the
+installing machine fills in may hold `%INSTALLDIR%`; `%%` is a literal `%`, and any other `%` is refused.
 
-Only the maintainer pushes to this repository. Plugins — code that runs inside games, or on the host —
-are held to more: a host's administrator approves every version before it runs (see "Plugin
-catalogue").
+### Presentation
 
-Because `when` names files by hash, a fix written once on the game serves every copy that has those
-bytes, whichever store it came from.
+Descriptions, artwork, screenshots and achievement icons are **archived**, as a convenience, so they outlive the store pages they came
+from, in a content-addressed archive kept apart from the recipes (`StokerHQ/Archive`): every file once, under its
+SHA-256, with where it came from and when. A recipe's `presentation` block — on a game, a DLC or an edition — and an
+achievement's `icon` refer to archived files by hash (`archiveRef`, `archiveImage`). A reader fetches a file from an
+archive mirror and checks the hash, else from its `source.url`. Trailers are referenced, not archived: their source,
+and the hash of each track as a reader stores it.
+
+A long description is archived as its store publishes it — `text/html; charset=utf-8` for Steam's and GOG's — and
+sanitised before it is shown; a short description is plain text. Achievements keep their names and descriptions in
+the recipe, in every language known: short text a player sees beside an unlock. A store page's facts — developers,
+publishers, release date — are in `storePage`.
+
+### Licence
+
+The recipes — everything in a recipes repository — and the archive's manifest of hashes and provenance are
+**CC0-1.0**: anybody may use them for anything. The files in the archive are not ours to license: they remain their
+publishers', kept for preservation, and the archive says how to ask for one to be removed. The schemas and
+`validate.py` are MIT.
 
 ### Plugin catalogue — v1
 
-Plugins are a format of their own, so the catalogue can move to a repository of its own: games name
-a plugin only by key and version (`pluginRef`), never by where it is kept. The layout is the same
-wherever it lives:
+Plugins are a format of their own, so the catalogue can move to a repository of its own: games name a plugin only by
+key and version (`pluginRef`), never by where it is kept.
 
 ```
 plugins/
   <key>/
-    plugin.json                what the plugin is: kind, name, author, licence, homepage
-    <version>.json             one immutable version: its files by hash, where their author publishes
-                               them, the config contract from its manifest, what it requires
+    plugin.json | plugin.yaml   what the plugin is: kind, name, author, licence, homepage
+    <version>.json | .yaml      one immutable version: its files by hash, where their author publishes
+                                them, the config contract from its manifest, what it requires
 ```
 
 | Document | Schema |
 |---|---|
-| `plugins/<key>/plugin.json` | `plugins/v1/plugin.schema.json` |
-| `plugins/<key>/<version>.json` | `plugins/v1/version.schema.json` |
+| `plugins/<key>/plugin.*` | `plugins/v1/plugin.schema.json` |
+| `plugins/<key>/<version>.*` | `plugins/v1/version.schema.json` |
 
-Kinds: `hook` (native code a bootstrap loads in a game), `mod` (files laid into a game for a mod
-loader, the loader included), `unpacker` (removes a DRM wrapper from a stored build, on the host
-itself) and `library` (loaded by other plugins). Hooks and mods are assigned to games and releases;
-an unpacker is named only by a build's `unpack` step.
+Kinds: `hook` (native code a loader runs inside a game), `mod` (files laid into a game for a mod loader, the loader
+included) and `library` (loaded by other plugins, never assigned). Hooks and mods are assigned in `plugins`, on a game,
+a release or a build.
 
-**No binaries.** A version lists each file's SHA-256 and BLAKE3 and the URLs its author publishes it
-at; whatever a host downloads, or an administrator supplies when every link is dead, is checked
-against the hash. The same holds for runtime installers. Nobody's binaries are redistributed, which
-licences such as Steamless's would not allow anyway.
+**No binaries.** A version lists each file's SHA-256 and BLAKE3 and the URLs its author publishes it at; whatever a
+host downloads is checked against the hash. A runtime's copies are known by their installer's BLAKE3 and size, which is
+how Stoker finds one a game bundles; a copy with `downloads` also carries the SHA-256 a download is checked against.
 
-**A host's administrator approves every plugin version once** before it runs anywhere on that host,
-whatever the catalogue says — an unpacker runs on the host itself, a hook or a mod inside players'
-games. The catalogue's hashes make sure what was approved is what runs.
+**A host's administrator approves every plugin version once** before it runs anywhere on that host.
 
 ### Versions
 
-Every document carries `schemaVersion`, `"<major>.<minor>"`. The schemas under `metadata/v1/` are
-always the newest minor of major 1, and a minor version only **adds**: fields, enum values, kinds.
-It never changes what an existing field means or makes an optional one required, so every document
-that was valid stays valid.
+Every document carries `schemaVersion`, `"<major>.<minor>"`. Once v1 is published, the schemas under `metadata/v1/`
+are always the newest minor of major 1, and a minor version only **adds**: fields, enum values, kinds. It never
+changes what an existing field means or makes an optional one required.
 
 A reader:
 
 - refuses a major it does not know;
 - reads a newer minor of a major it knows, and **ignores fields it does not know**;
-- treats a value it does not know in a field that only describes — a provider, a tag kind, a
-  definition's origin — as absent, and an entry for a platform it does not know as not for this host;
-- never silently skips something it does not know that would change what is done to an install — a
-  fix role, a step kind, an integration provider or action. It treats that build as needing a newer
-  Stoker instead, because a skipped fix is a broken install reported as a working one.
+- treats a value it does not know in a field that only describes — a provider, a tag kind, a store or a store id kind —
+  as absent, and an entry for a platform it does not know as not for this host;
+- never silently skips something it does not know that would change what is done to an install — a fix role, a step
+  kind. It treats that build as needing a newer reader instead, because a skipped fix is a broken install reported as
+  a working one.
 
-The schemas themselves stay strict (`additionalProperties: false`), so this repository's checks
-catch a misspelt field; it is readers that are lenient, not the schemas.
+The schemas themselves stay strict (`additionalProperties: false`), so this repository's checks catch a misspelt
+field; it is readers that are lenient, not the schemas.
 
 ### Checks beyond the schemas
 
 `validate.py` runs every document against its schema, then checks what a schema cannot see:
 
-- a game folder holds only the files and folders a game has, and every document is JSON with no key
-  twice in one object;
-- folder and file names match the ids inside, every document names its own game, and no id is used
-  twice anywhere in the repository;
-- an inlined image is a PNG, JPEG or WebP whose bytes have the stated type, size and SHA-256;
-- partial dates are real days;
-- a DLC's requirements are other DLC of the same game, and never go round in a circle;
-- release names and orders are unique within a game, and no two builds share a source (for Steam,
-  a depot set), a fingerprint or a set of markers;
-- a build's launches, integrations, compatibility reports and fixes are for platforms it runs on, it
-  has one launch per key and platform and at most one default launch per platform, its fixes answer
-  groups it declares (a `pickOne` group with at most one default) and name DLC the game has, its
-  steps come from install scripts it carries, and interface versions are read from builds the game
-  has;
-- a step's `launch` is a key a build it applies to has;
-- `disableFixes` names fixes that exist above it, and a `hexEdit` edits a file its fix's `when` pins
-  by hash and writes as many bytes as it replaces;
-- no achievement name or alias, stat or leaderboard name is used twice, nor a tag slug.
-
+- a game folder holds only the files and folders a game has, is named by the game's `slug`, and every document is
+  YAML read as JSON (above) with no key twice in one mapping;
+- no id is used twice anywhere in the repository, and every document of a game names that game;
+- a store id has the shape of its kind, is a string, and belongs to one item across the repository (except kinds
+  several items share); `installed` names only ids the item has, of a reported kind;
+- an edition includes DLC of its game; a DLC's requirements and a bundle's `includes` are other DLC of the same game,
+  never itself and never in a circle;
+- a build a release names by id is defined by another release of the game, and named once;
+- a release range names releases of the game, and runs forwards;
+- release names and orders are unique within a game, and no two builds share a source (for Steam, a depot set), a
+  fingerprint or a set of markers;
+- a build's launches, compatibility reports and fixes are for platforms it runs on, it has one launch per key and
+  platform and at most one default launch per platform, its fixes answer groups it declares, a `languagePack` says its
+  language, its steps come from install scripts it carries, and a `steamworks` site's interface versions are read from
+  a build the game has;
+- a step's `launch` is a key a build it applies to has, `disableFixes` names fixes above it, and a `hexEdit` edits a
+  file its fix's `when` pins by hash and writes as many bytes as it replaces;
+- a save path uses only known placeholders, a partial date is a real day, and no achievement name or alias, stat or
+  leaderboard name, or tag slug is used twice;
+- every step kind has a class, every hook id is unique, and `disableHooks` names hooks above it;
 - every runtime a build needs is in `runtimes/`, and no installer belongs to two runtimes;
-- every plugin a game, release or `unpack` step names is in the catalogue at that version, of a kind
-  that can be used there, configured as its contract says; a version's kind is its plugin's, it has one
-  file per platform and architecture, what it requires exists and may stand beside it, and its config
-  contract is a usable schema whose defaults obey it.
+- every plugin named is in the catalogue at that version, of a kind that can be used there, configured as its
+  contract says.
 
 ```
-python -I validate.py <metadata repository root> [--plugins <plugin catalogue root>]
+python -I validate.py <recipes repository root> [--plugins <plugin catalogue root>]
 python -I validate.py metadata/examples
 ```
 
-The catalogue is read from `--plugins` when given, else from the repository's own `plugins/`.
-Without either, plugin references go unchecked and the run says so.
-
-Needs `jsonschema[format-nongpl]` 4.18 or newer. Without the `format-nongpl` extra jsonschema
-passes every URI unchecked, so the validator refuses to run without it.
+Needs `jsonschema[format-nongpl]` 4.18 or newer and PyYAML. Without the `format-nongpl` extra jsonschema passes every
+URI unchecked, so the validator refuses to run without it.
 
 ### Not decided yet
 
-- **Signed plugin versions.** Approval by each host's administrator and the catalogue's hashes are the
-  trust model for now; a signature a host could verify independently of where it cloned the catalogue
-  from comes when the catalogue has its own repository.
-- **Where fix content comes from.** A `files` step names its files by fingerprint and a
-  `binaryPatch` its diff by hash; for a community patch or a mod an instance does not already hold,
-  the repository will need to say where to get them. That arrives as a minor version.
-- **Emulator settings** for console builds, and **age ratings** — neither is modelled yet.
-- **Full file listings per build.** The fingerprint identifies a build; a listing would also show
-  *where* two builds differ, at a cost of megabytes per large game.
+- **The compiled index** recipes are read from: one signed, compressed file per major, and a small file per store id
+  (`by-store/<store>/<kind>/<id>.json`) so *I have game Y from store X* is one request.
+- **Signed plugin versions**, and where fix content (`files`, `binaryPatch`) comes from when a reader does not hold it.
+- **Emulator settings** for console builds, and **age ratings**.

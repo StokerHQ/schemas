@@ -28,8 +28,8 @@
   },
   "$defs": {
     "kind": {
-      "description": "`hook`: native code a Stoker bootstrap loads inside a game; assigned to games and releases. `mod`: files an install lays into a game for a mod loader — the loader itself (BepInEx), or a plugin for it; assigned like a hook. `unpacker`: a .NET assembly in Steamless's plugin format that removes a store's DRM wrapper from a stored build — it runs on the Stoker host itself, never in a game, is named only by a build's `unpack` step, and needs its administrator's approval every time a new version is to run. `library`: a file other plugins load (`Steamless.API`), never assigned and never run on its own.",
-      "enum": ["hook", "mod", "unpacker", "library"]
+      "description": "`hook`: native code a loader runs inside a game; assigned to a game, a release or a build (`plugins`). `mod`: files an install lays into a game for a mod loader — the loader itself (BepInEx), or a plugin for it; assigned like a hook. `library`: a file other plugins load, never assigned and never run on its own.",
+      "enum": ["hook", "mod", "library"]
     }
   }
 }

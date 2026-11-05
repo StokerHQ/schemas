@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://schemas.stokerhq.app/metadata/v1/release.schema.json
+schemaVersion: "1.0"
+id: 0192f0a0-7c10-7000-8000-000000000102
+gameId: 0192f0a0-7c10-7000-8000-000000000001
+name: 1.1.0
+order: 200
+channel: stable
+releasedAt: "2014-03"
+changelog:
+  en: Widescreen menus, and the high-DPI fix the game needed until now.
+
+builds:
+  # The Steam copy and the GOG copy of 1.1.0 differ, so they are two builds of one release.
+  - id: 0192f0a0-7c10-7000-8000-000000001002
+    platforms: [windows]
+    architecture: x64
+    sources:
+      - kind: steam
+        buildId: "1000020"
+        depots: { "1000004": "5000000000000000011" }
+    markers:
+      - { path: ExampleHexagon.exe, size: 4325376, blake3: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc }
+    launches:
+      - { key: play, name: Play, platform: windows, executable: ExampleHexagon.exe, default: true }
+    # A plugin for this one copy: the Steam build's menus still need the widescreen hook at 21:9.
+    plugins:
+      - plugin: { key: org.example.widescreen-fix, version: 1.0.0 }
+        when: { platforms: [windows] }
+        config: { aspect: "21:9" }
+  - id: 0192f0a0-7c10-7000-8000-000000001003
+    platforms: [windows]
+    architecture: x64
+    sources:
+      - kind: gog
+        buildId: "54000000000000001"
+        versionName: 1.1.0
+    markers:
+      - { path: ExampleHexagon.exe, size: 4325888, blake3: eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee }
+    launches:
+      - { key: play, name: Play, platform: windows, executable: ExampleHexagon.exe, default: true }
+    # The GOG copy keeps the Steamworks code behind a GOG layer that names no interface versions; they are read from the
+    # Steam copy's library.
+    steamworks:
+      - path: common.dll
+        interfaceVersions: [SteamUser021, SteamFriends017, STEAMUSERSTATS_INTERFACE_VERSION012]
+        interfaceVersionsFrom: { path: steam_api64.dll, buildId: 0192f0a0-7c10-7000-8000-000000001002 }

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.stokerhq.app/metadata/v1/release.schema.json",
   "title": "Stoker metadata — release",
-  "description": "`games/<gameId>/releases/<id>.json`: one version of a game as people name it (\"1.4.2\"), and every known build of it — the files' fingerprint, how to install and start them on each platform, and the fixes they need. One file per release, so a new version is a new file and never a conflict in an old one. The game's files are never in the repository: an instance matches its own copy to a build here by the build's fingerprint.",
+  "description": "`games/<slug>/builds/<name>.yaml`: one version of a game as people name it (\"1.4.2\"), and every known build of it — the files' fingerprint, how to install and start them on each platform, the store layers in them, and the fixes they need. One file per release, so a new version is a new file and never a conflict in an old one. The game's files are never in the repository: a reader matches its own copy to a build here by the build's sources, fingerprint or markers.",
   "type": "object",
   "required": ["schemaVersion", "id", "gameId", "name", "order"],
   "additionalProperties": false,
@@ -42,23 +42,6 @@
       "uniqueItems": true,
       "items": { "$ref": "common.schema.json#/$defs/fileName" }
     },
-    "settings": {
-      "description": "This release's own answer to the game's settings. Absent fields take the game's.",
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "injectHooksAtLaunch": { "type": "boolean" },
-        "hooks": {
-          "description": "Replaces the game's rules whole — rule lists are never merged, because two lists hooking one export have no meaningful order. `{ \"hooks\": [] }` switches the game's off for this release.",
-          "$ref": "common.schema.json#/$defs/hooks"
-        }
-      }
-    },
-    "plugins": {
-      "description": "Plugins for this release. Each replaces the game's assignment of the same plugin — `enabled: false` to switch it off here — and the game's others still apply.",
-      "type": "array",
-      "items": { "$ref": "common.schema.json#/$defs/pluginAssignment" }
-    },
     "fixes": {
       "description": "Patches and mods for this release's copies — applied after a build's own fixes and before the game's — to whichever copies their `when` holds for.",
       "type": "array",
@@ -70,10 +53,28 @@
       "uniqueItems": true,
       "items": { "$ref": "common.schema.json#/$defs/uuid" }
     },
-    "builds": {
+    "plugins": {
+      "description": "Plugins for this release's copies (`common.schema.json#/$defs/pluginAssignment`). An assignment of a plugin the game also assigns replaces the game's for these copies — `enabled: false` switches it off here — and the game's others still apply.",
       "type": "array",
-      "items": { "$ref": "#/$defs/build" }
+      "items": { "$ref": "common.schema.json#/$defs/pluginAssignment" }
+    },
+    "hooks": {
+      "description": "Export hooks for this release's copies (`common.schema.json#/$defs/hook`), combined with the game's by the combine rule.",
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/hook" }
+    },
+    "disableHooks": {
+      "description": "The game's hooks, by id, that must not be applied to this release's copies even where their `when` holds.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "common.schema.json#/$defs/uuid" }
+    },
+    "builds": {
+      "description": "The release's builds: each one defined here, or — when another release of the game has exactly the same files — named by id (`{ build: <id> }`), so one set of files is one build however many releases ship it.",
+      "type": "array",
+      "items": { "if": { "type": "object", "required": ["build"] }, "then": { "$ref": "#/$defs/buildReference" }, "else": { "$ref": "#/$defs/build" } }
     }
+
   },
   "allOf": [
     {
@@ -85,7 +86,8 @@
     "build": {
       "description": "One copy of the release's files: the platforms they run on and everything that says how to install and start them there. A build serving Windows and Linux from one set of files is one build with a launch per platform. A release has a build per copy of it anybody has described — the Steam depots, the GOG installer, a disk copy — so several builds may cover the same platform; what tells them apart is their files, and no two builds of a game have the same fingerprint.",
       "type": "object",
-      "required": ["id", "platforms", "sources"],
+      "required": ["id", "platforms"],
+      "anyOf": [{ "required": ["content"] }, { "required": ["markers"] }, { "required": ["sources"] }],
       "additionalProperties": false,
       "properties": {
         "id": {
@@ -99,7 +101,7 @@
         },
         "architecture": { "$ref": "common.schema.json#/$defs/architecture", "default": "any" },
         "sources": {
-          "description": "Every place these exact files are known to come from, with that place's own ids. Usually one; more when stores ship identical files — a DRM-free game whose Steam depots and GOG installer unpack to the same tree is one build with two sources, since what a build is is its files.",
+          "description": "Optional: the stores' own ids for these exact files, so a reader that has a store's metadata can recognise a copy without hashing it. Never what a build is — a build is its files (`content`, else `markers`), wherever a copy came from: a DRM-free game whose Steam depots and GOG installer unpack to the same tree is one build with two sources, and a copy from anywhere else with the same files is that build too. How one instance happened to get its copy is not recorded.",
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
@@ -110,7 +112,7 @@
           "$ref": "common.schema.json#/$defs/contentFingerprint"
         },
         "markers": {
-          "description": "Files that identify the build when its fingerprint does not: a copy is this build when every marker is there with its bytes. A copy is matched first by its sources (for Steam, its depot manifests), then by its fingerprint, then by markers. Choose files nothing writes to — the executables, the main data archives — and enough of them that no other build of the game has them all.",
+          "description": "Files that identify the build when its fingerprint does not: a copy is this build when every marker is there with its bytes. A copy is matched by its fingerprint, then by its markers (by its sources first, where a reader has a store's metadata). Choose files that identify the version and that nothing writes to: the main executable, and, where the executables do not change between versions, the largest file that does — the main data archive. No two builds of a game may have the same set.",
           "type": "array",
           "minItems": 1,
           "items": { "$ref": "common.schema.json#/$defs/marker" }
@@ -120,10 +122,10 @@
           "type": "array",
           "items": { "$ref": "#/$defs/launch" }
         },
-        "integrations": {
-          "description": "Every place the build links a store SDK, and what the install does there. Many per build: games ship a copy of the library beside every executable, and patching only the first leaves the rest talking to the store.",
+        "steamworks": {
+          "description": "What Stoker needs to know about a Steamworks library in the build and cannot read from the files: the interface versions a GOG port's or a store's own `steam_api` answers with, and an app id the build reports that is not the game's. Stoker finds the libraries themselves, and every other store's SDK, in the files at ingest; a library with nothing to add here is not listed.",
           "type": "array",
-          "items": { "$ref": "#/$defs/integration" }
+          "items": { "$ref": "#/$defs/steamworksSite" }
         },
         "dependencies": {
           "description": "Runtimes the machine needs, in install order — order matters, as runtimes have install-order requirements. A runtime for another platform than the one being installed is skipped.",
@@ -144,7 +146,7 @@
           "items": { "$ref": "#/$defs/selectionGroup" }
         },
         "fixes": {
-          "description": "What is done to this copy, in order, before its release's and its game's fixes: the publisher's setup, its languages and DLC, its unpacked executables, and patches that only this copy needs. The stored build is never edited; every change is a fix or a setting.",
+          "description": "What is done to this copy, in order, before its release's and its game's fixes: the publisher's setup, its languages and DLC, and patches that only this copy needs. The stored build is never edited; every change is a fix or a setting.",
           "type": "array",
           "items": { "$ref": "#/$defs/buildFix" }
         },
@@ -167,6 +169,22 @@
         "notes": {
           "description": "About this copy — a repack, a regional installer. Markdown.",
           "type": "string"
+        },
+        "plugins": {
+          "description": "Plugins for this copy alone. An assignment of a plugin its release or game also assigns replaces theirs — `enabled: false` switches it off here.",
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/pluginAssignment" }
+        },
+        "hooks": {
+          "description": "Export hooks for this copy alone, combined with its release's and game's by the combine rule.",
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/hook" }
+        },
+        "disableHooks": {
+          "description": "Hooks of the release or the game, by id, that must not be applied to this build even where their `when` holds.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "common.schema.json#/$defs/uuid" }
         }
       }
     },
@@ -249,15 +267,6 @@
             "titleId": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
             "version": { "description": "The title version the package carries.", "type": "integer", "minimum": 0 }
           }
-        },
-        {
-          "description": "A directory taken as it was, or files recorded by hand.",
-          "type": "object",
-          "required": ["kind"],
-          "additionalProperties": false,
-          "properties": {
-            "kind": { "enum": ["directory", "manual"] }
-          }
         }
       ]
     },
@@ -288,37 +297,18 @@
         }
       }
     },
-    "integration": {
+    "steamworksSite": {
+      "description": "One Steamworks library in the build, with what Stoker cannot read from it.",
       "type": "object",
-      "required": ["provider", "platform", "path", "action"],
+      "required": ["path"],
+      "anyOf": [{ "required": ["interfaceVersions"] }, { "required": ["appId"] }],
       "additionalProperties": false,
       "properties": {
-        "provider": {
-          "description": "`none` records a site examined and found to be nothing Stoker answers.",
-          "enum": ["none", "steamworks", "gogGalaxy", "renPy", "godot", "ubisoftConnect", "epicOnlineServices"]
-        },
-        "platform": { "$ref": "common.schema.json#/$defs/platform" },
-        "architecture": {
-          "description": "Which build of the library the file is. `steam_api.dll` and `steam_api64.dll` are different binaries, and the wrong one in their place is a game that will not start and says nothing.",
-          "enum": ["x86", "x64"]
-        },
-        "path": {
-          "description": "Where the library is, or goes: `Binaries/Win64/steam_api64.dll`. For Ren'Py the loader script, for Godot the `override.cfg`.",
-          "$ref": "common.schema.json#/$defs/relativePath"
-        },
-        "action": {
-          "description": "`replace` the shipped library with Stoker's; `add` one the build lacks; `leave` it as recorded and deliberately untouched.",
-          "enum": ["replace", "add", "leave"]
-        },
-        "originalBlake3": {
-          "description": "What must be found before patching — BLAKE3, which the instance's manifest already holds for the file. A file that hashes otherwise has been modified or mis-identified, and the patch is refused.",
-          "$ref": "common.schema.json#/$defs/blake3"
-        },
-        "shippedLibraryVersion": { "description": "The SDK version as found in the build: `1.59`.", "type": "string" },
-        "requiredLibraryVersion": { "description": "The SDK version Stoker's library has to satisfy.", "type": "string" },
+        "path": { "description": "The library: `Binaries/Win64/steam_api64.dll`, a GOG port's `common.dll`.", "$ref": "common.schema.json#/$defs/relativePath" },
         "interfaceVersions": {
-          "description": "The Steamworks interface versions to answer with — `SteamFriends015` — for a site whose own library names none (a GOG layer, a store's own `steam_api`). Read from another file that does: Valve's original kept beside it, the Steam release's copy, the executable.",
+          "description": "The Steamworks interface versions the game asks for — `SteamFriends015`, `STEAMUSERSTATS_INTERFACE_VERSION010` — for a library that names none itself: a GOG port's Steam layer, a store's own `steam_api`. Read from another file that does: Valve's original kept beside it, the Steam release's copy, the game's executable.",
           "type": "array",
+          "minItems": 1,
           "uniqueItems": true,
           "items": { "type": "string", "minLength": 1 }
         },
@@ -332,29 +322,23 @@
             "buildId": { "$ref": "common.schema.json#/$defs/uuid" }
           }
         },
-        "providerAppId": {
-          "description": "The id the build reports to the store, when it is not the game's own: a regional SKU, a bundled demo, a development AppId left in a shipping binary.",
+        "appId": {
+          "description": "The Steam AppId this build reports, when it is not the game's own: a regional SKU, a bundled demo, a development AppId left in a shipping binary.",
           "type": "string",
-          "minLength": 1
-        },
-        "writeAppIdFile": {
-          "description": "Write `steam_appid.txt` beside the library; a Steamworks game refuses to initialise outside a Steam client without one.",
-          "type": "boolean",
-          "default": false
-        },
-        "enabled": {
-          "description": "False to keep the finding without applying it.",
-          "type": "boolean",
-          "default": true
+          "pattern": "^[1-9][0-9]*$"
         },
         "notes": { "type": "string" }
-      },
-      "allOf": [
-        {
-          "if": { "properties": { "action": { "enum": ["replace", "add"] }, "provider": { "enum": ["steamworks", "gogGalaxy", "ubisoftConnect", "epicOnlineServices"] } } },
-          "then": { "required": ["architecture"] }
-        }
-      ]
+      }
+    },
+    "buildReference": {
+      "description": "A build defined in another release of the same game, named by id: the same files shipped as more than one release (a re-release that changed nothing, a hotfix for another platform). Everything about the build is its definition's; only that this release ships it is said here.",
+      "type": "object",
+      "required": ["build"],
+      "additionalProperties": false,
+      "properties": {
+        "build": { "$ref": "common.schema.json#/$defs/uuid" },
+        "notes": { "type": "string" }
+      }
     },
     "selectionGroup": {
       "type": "object",
@@ -375,37 +359,16 @@
       }
     },
     "buildFix": {
-      "description": "A fix of one build. Besides patches and mods, a build's fixes are what make the copy what it is: its `setup`, its `languagePack`s and `dlc`, its `unpacked` executables.",
+      "description": "A fix of one build: besides patches and mods, its `setup` and its `languagePack`s. Never how a DLC gets into a copy — that is the copy's store's business (its depots, install tags or installers), which a recipe cannot know; which DLC an install has is the reader's own knowledge.",
       "$ref": "common.schema.json#/$defs/fix",
       "properties": {
-        "dlcId": {
-          "description": "For a `dlc` fix, which of the game's DLC (`dlc/<dlcId>.json`) it is — what tells the store's \"is this DLC installed?\" the truth.",
-          "$ref": "common.schema.json#/$defs/uuid"
-        },
         "selectionGroup": {
           "description": "The question this fix answers, by key. Absent: not one of a question's answers.",
           "$ref": "common.schema.json#/$defs/slug"
         }
       },
-      "unevaluatedProperties": false,
-      "allOf": [
-        {
-          "if": { "properties": { "role": { "const": "dlc" } } },
-          "then": { "required": ["dlcId"] },
-          "else": { "not": { "required": ["dlcId"] } }
-        },
-        {
-          "description": "Only a DLC whose content already ships in the build's files — the game unlocks it by asking whether it is owned — has nothing to do.",
-          "if": { "properties": { "role": { "not": { "const": "dlc" } } } },
-          "then": { "required": ["steps"], "properties": { "steps": { "minItems": 1 } } }
-        },
-        {
-          "description": "An `unpacked` fix only unpacks, and unpacking is only ever such a fix.",
-          "if": { "properties": { "role": { "const": "unpacked" } } },
-          "then": { "properties": { "steps": { "items": { "properties": { "kind": { "const": "unpack" } } } } } },
-          "else": { "properties": { "steps": { "items": { "properties": { "kind": { "not": { "const": "unpack" } } } } } } }
-        }
-      ]
+      "required": ["steps"],
+      "unevaluatedProperties": false
     },
     "installScript": {
       "type": "object",

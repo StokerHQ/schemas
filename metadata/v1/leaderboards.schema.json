@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.stokerhq.app/metadata/v1/leaderboards.schema.json",
   "title": "Stoker metadata — leaderboards",
-  "description": "`games/<id>/leaderboards.json`: the game's leaderboards, in its own order — on Steam, the order of its leaderboard list. Definitions only — the scores are a Stoker instance's. A game creates its boards itself when it first runs, so the first caller's sort and display settings are what a board keeps; recording them here means two instances rank the same board the same way.",
+  "description": "`games/<slug>/leaderboards.yaml`: the game's leaderboards, in its own order — on Steam, the order of its leaderboard list. Definitions only — the scores are a reader's own. A game creates its boards itself when it first runs, so the first caller's sort and display settings are what a board keeps; recording them here means two readers rank the same board the same way.",
   "type": "object",
   "required": ["schemaVersion", "gameId"],
   "additionalProperties": false,

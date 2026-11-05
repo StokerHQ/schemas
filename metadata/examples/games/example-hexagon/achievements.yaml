@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://schemas.stokerhq.app/metadata/v1/achievements.schema.json
+schemaVersion: "1.0"
+gameId: 0192f0a0-7c10-7000-8000-000000000001
+achievements:
+  - apiName: ACH_FIRST_MINUTE
+    # Granted under this name too, as a store layer that grants by number reports it.
+    aliases: [uplay_1]
+    name: { en: Point, de: Punkt }
+    description: { en: Survive for a minute., de: Überlebe eine Minute. }
+    # Icons are archived; the names and descriptions stay here.
+    icon:
+      sha256: 1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a
+      contentType: image/jpeg
+      size: 4211
+      width: 64
+      height: 64
+      source: { provider: steam, url: "https://cdn.example.com/1000002/ach_first_minute.jpg", retrieved: "2026-11-04" }
+    iconLocked:
+      sha256: 1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b
+      contentType: image/jpeg
+      size: 3870
+      width: 64
+      height: 64
+      source: { provider: steam, url: "https://cdn.example.com/1000002/ach_first_minute_gray.jpg", retrieved: "2026-11-04" }
+    origin: curated
+  - apiName: ACH_SECRET
+    name: { en: Hexagonest }
+    hidden: true
+    origin: observed

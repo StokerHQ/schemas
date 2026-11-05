@@ -1,0 +1,182 @@
+# yaml-language-server: $schema=https://schemas.stokerhq.app/metadata/v1/game.schema.json
+# A fictional game, here to show the shape of an entry. Nothing about it, its ids or its hashes is real.
+schemaVersion: "1.0"
+id: 0192f0a0-7c10-7000-8000-000000000001
+slug: example-hexagon
+kind: game
+name: Example Hexagon
+
+# Every store's ids for the base game. Ids are always quoted strings.
+stores:
+  gog:
+    ids:
+      - { kind: productId, id: "1000000001" }
+  steam:
+    ids:
+      - { kind: appId, id: "1000002" }
+  ubisoft:
+    # Ubisoft numbers editions and the items inside them separately. All three are kept, so an import can
+    # match any of them; only the two that stand for the game itself are reported as owned.
+    ids:
+      - { kind: productId, id: "22", label: Standard edition }
+      - { kind: productId, id: "71", label: Steam edition }
+      - { kind: productId, id: "543", label: Pre-order bonus item }
+    installed: ["productId:22", "productId:71"]
+
+storePage:
+  developers: [Example Studio]
+  publishers: [Example Publishing]
+  releaseDate: "2012-09"
+  sources:
+    - { provider: steam, url: "https://store.example.com/app/1000002", retrieved: "2026-11-04" }
+
+# Words and pictures are archived (StokerHQ/Archive) and referenced by hash, never written here.
+presentation:
+  shortDescription:
+    en:
+      sha256: 0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e
+      contentType: "text/plain; charset=utf-8"
+      size: 58
+      source: { provider: steam, url: "https://store.example.com/app/1000002", retrieved: "2026-11-04" }
+  # The long description as the store publishes it: HTML, which a reader sanitises before showing it.
+  description:
+    en:
+      sha256: 0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d
+      contentType: "text/html; charset=utf-8"
+      size: 2310
+      source: { provider: steam, url: "https://store.example.com/app/1000002", retrieved: "2026-11-04" }
+  artwork:
+    capsule:
+      sha256: 0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c
+      contentType: image/jpeg
+      size: 91234
+      width: 600
+      height: 900
+      source: { provider: steam, url: "https://cdn.example.com/1000002/library_600x900.jpg", retrieved: "2026-11-04" }
+
+tags:
+  - { slug: action, name: Action, kind: genre }
+  - { slug: single-player, name: Single-player, kind: feature }
+
+dlc:
+  - id: 0192f0a0-7c10-7000-8000-000000000002
+    name: Example Hexagon — Soundtrack
+    stores:
+      steam: { ids: [{ kind: appId, id: "1000010" }] }
+      gog: { ids: [{ kind: productId, id: "1000000002" }] }
+    notes: Ships inside the base game's files.
+  - id: 0192f0a0-7c10-7000-8000-000000000003
+    name: Example Hexagon — Hyper Mode
+    stores:
+      steam: { ids: [{ kind: appId, id: "1000011" }] }
+      epic:
+        ids:
+          - { kind: catalogItemId, id: 0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a }
+          - { kind: entitlementName, id: HyperMode }
+          - { kind: appName, id: ExampleHyperMode }
+          - { kind: namespace, id: 0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b }
+  - id: 0192f0a0-7c10-7000-8000-000000000004
+    name: Example Hexagon — Hyper Mode Remix Pack
+    requires: [0192f0a0-7c10-7000-8000-000000000003]
+    stores:
+      steam: { ids: [{ kind: appId, id: "1000012" }] }
+  # A bundle of other DLC: owning it is owning the two, and its id is reported by an install that carries both.
+  - id: 0192f0a0-7c10-7000-8000-000000000006
+    name: Example Hexagon — Hyper Mode Collection
+    includes: [0192f0a0-7c10-7000-8000-000000000003, 0192f0a0-7c10-7000-8000-000000000004]
+    stores:
+      steam: { ids: [{ kind: appId, id: "1000013" }] }
+
+# An edition is the base game plus what it includes; its ids are reported by an install that carries all of it.
+editions:
+  - id: 0192f0a0-7c10-7000-8000-000000000005
+    name: Example Hexagon — Deluxe Edition
+    includes:
+      - 0192f0a0-7c10-7000-8000-000000000002
+      - 0192f0a0-7c10-7000-8000-000000000003
+    stores:
+      gog: { ids: [{ kind: productId, id: "1000000009", label: Deluxe Edition }] }
+      steam: { ids: [{ kind: packageId, id: "200001", label: Deluxe Edition package }] }
+
+saves:
+  files:
+    - { path: "<winAppData>/ExampleHexagon/*.sav", tags: [save], platforms: [windows] }
+    - { path: "<xdgData>/example-hexagon/*.sav", tags: [save], platforms: [linux] }
+    - { path: "<base>/settings.ini", tags: [config] }
+    # Only the files directly in it: its subfolders are the game's shader cache.
+    - { path: "<winDocuments>/Example Hexagon/*", tags: [save], platforms: [windows] }
+    # Everything in the profile folder and below it, whatever the player's Steam account id.
+    - { path: "<winSavedGames>/Example Hexagon/<steamAccountId>/**/*", tags: [save], platforms: [windows] }
+  registry:
+    - { key: HKEY_CURRENT_USER/Software/Example/Hexagon, tags: [config] }
+
+fixes:
+  - id: 0192f0a0-7c10-7000-8000-000000003001
+    role: patch
+    name: Skip the intro video
+    # Written against the executable's bytes, so it serves every copy that has them, from any store.
+    when:
+      files:
+        - { path: ExampleHexagon.exe, blake3: "9999999999999999999999999999999999999999999999999999999999999999" }
+    appliedWhen:
+      files:
+        - { path: movies/intro.bik, absent: true }
+    steps:
+      - { kind: delete, paths: [movies/intro.bik] }
+      - kind: hexEdit
+        file: ExampleHexagon.exe
+        edits:
+          - { offset: 74512, from: "7405", to: eb05 }
+    notes: The intro crashes on drivers newer than 2015; the jump makes the game skip it instead of waiting for it.
+  - id: 0192f0a0-7c10-7000-8000-000000003002
+    role: patch
+    name: High-DPI scaling
+    # Once, for a range of versions: 1.0.7 up to but not 1.1.0, which fixed it. A release added later
+    # inside the range is covered without an edit.
+    when:
+      platforms: [windows]
+      releases:
+        from: 0192f0a0-7c10-7000-8000-000000000101
+        before: 0192f0a0-7c10-7000-8000-000000000102
+    optional: true
+    default: true
+    steps:
+      - { kind: windowsCompatibility, executable: ExampleHexagon.exe, layers: [HIGHDPIAWARE] }
+  - id: 0192f0a0-7c10-7000-8000-000000003003
+    role: patch
+    name: Use the bundled libraries
+    # By the file that needs it, not by store: any copy that ships the bundled libraries gets it.
+    when:
+      platforms: [linux]
+      files:
+        - { path: lib/libSDL2-2.0.so.0, blake3: "8888888888888888888888888888888888888888888888888888888888888888" }
+    steps:
+      - { kind: environment, name: LD_LIBRARY_PATH, value: "%INSTALLDIR%/lib", mode: prepend, launch: play }
+
+links:
+  - { label: PCGamingWiki, url: "https://www.pcgamingwiki.com/wiki/Example" }
+
+notes: Runs fine once the widescreen fix is applied; without it the menu is cut off at 21:9.
+
+# Export hooks, combined across game, release and build like fixes and plugins. This one is for the releases
+# before 1.1.0 only, and has to be in place before the game's own code runs.
+hooks:
+  - id: 0192f0a0-7c10-7000-8000-000000004001
+    when:
+      platforms: [windows]
+      releases: { before: 0192f0a0-7c10-7000-8000-000000000102 }
+    atLaunch: true
+    module: crypt32.dll
+    function: CryptQueryObject
+    behavior: intercept
+    callingConvention: stdcall
+    argCount: 11
+    param: 2
+    wide: true
+    mode: filename
+    match: a.dll
+    replace: b.dll
+    guards: [{ param: 1, equals: 1 }]
+    log: true
+
+overlayMode: inFrame

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.stokerhq.app/metadata/v1/runtime.schema.json",
   "title": "Stoker metadata — runtime",
-  "description": "`runtimes/<key>.json`: one runtime a machine needs before games will run — Visual C++ 2015-2022 (x64), DirectX June 2010, PhysX — identified by what it is, not by any copy of it. Everything about installing it once per machine is here, once: how to tell it is already there, how to run its installer silently, which exit codes mean success. A build names it by key; forty games that need it cost one installer run. Its copies are listed below because games bundle their own and those differ — a 2019 game ships 14.28, a 2023 one 14.36 — and the newest a machine needs is the one that runs. The installers are never in the repository: a copy is recognised by its hash in a game's files, or downloaded from its publisher.",
+  "description": "`runtimes/<key>.yaml`: one runtime a machine needs before games will run — Visual C++ 2015-2022 (x64), DirectX June 2010, PhysX — identified by what it is, not by any copy of it. Everything about installing it once per machine is here, once: how to tell it is already there, how to run its installer silently, which exit codes mean success. A build names it by key; forty games that need it cost one installer run. Its copies are listed below because games bundle their own and those differ — a 2019 game ships 14.28, a 2023 one 14.36 — and the newest a machine needs is the one that runs. The installers are never in the repository: a copy is recognised by its hash in a game's files, or downloaded from its publisher.",
   "type": "object",
   "required": ["schemaVersion", "key", "name", "platform", "architecture", "detection", "install"],
   "additionalProperties": false,
@@ -116,6 +116,7 @@
       "type": "object",
       "required": ["installer"],
       "additionalProperties": false,
+      "allOf": [{ "if": { "required": ["downloads"] }, "then": { "properties": { "installer": { "required": ["sha256"] } } } }],
       "properties": {
         "version": {
           "description": "The version this copy installs, as the detection probe reads it: a machine with less installs this copy. Also how copies are ranked; absent, the copy only ever satisfies the ledger.",
@@ -123,9 +124,9 @@
           "minLength": 1
         },
         "installer": {
-          "description": "The file that is run. A game's bundled copy is recognised by this file's BLAKE3 in the game's manifest (`_CommonRedist/vcredist/2019/VC_redist.x64.exe`), wherever the game put it; a download is checked against the SHA-256.",
+          "description": "The file that is run, by its BLAKE3 and size — what Stoker recognises a game's bundled copy by in the game's manifest (`_CommonRedist/vcredist/2019/VC_redist.x64.exe`), wherever the game put it. The SHA-256 is what a download is checked against, so it is required only for a copy with `downloads`.",
           "type": "object",
-          "required": ["fileName", "size", "blake3", "sha256"],
+          "required": ["fileName", "size", "blake3"],
           "additionalProperties": false,
           "properties": {
             "fileName": { "$ref": "common.schema.json#/$defs/fileName" },

@@ -42,7 +42,7 @@
       "$ref": "#/$defs/configContract"
     },
     "requires": {
-      "description": "Plugins this one needs beside it, at exact versions: a BepInEx plugin needs BepInEx, an unpacker needs `Steamless.API`.",
+      "description": "Plugins this one needs beside it, at exact versions: a BepInEx plugin needs BepInEx.",
       "type": "array",
       "uniqueItems": true,
       "items": { "$ref": "../../metadata/v1/common.schema.json#/$defs/pluginRef" }
@@ -68,7 +68,7 @@
       "else": { "not": { "anyOf": [{ "required": ["abi"] }, { "required": ["hosts"] }, { "required": ["manifestSha256"] }] } }
     },
     {
-      "if": { "properties": { "kind": { "enum": ["unpacker", "library"] } } },
+      "if": { "properties": { "kind": { "const": "library" } } },
       "then": {
         "not": { "required": ["config"] },
         "properties": { "files": { "items": { "properties": { "architecture": { "const": "il" } } } } }
