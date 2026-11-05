@@ -62,7 +62,7 @@
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
-      "items": { "enum": ["steamworks", "ubisoft", "galaxy"] }
+      "items": { "enum": ["steamworks", "ubisoft", "galaxy", "eos"] }
     },
     "manifestSha256": {
       "description": "Hook plugins: SHA-256 of the manifest embedded in every file of the version (`.stkmeta`). Every file carries the identical manifest, so one configuration contract is right for all of them — and a host reading a file's manifest can tell it is this version.",
