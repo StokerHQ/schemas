@@ -220,7 +220,11 @@
             "oneOf": [{ "$ref": "#/$defs/scalarField" }, { "$ref": "#/$defs/arrayField" }, { "$ref": "#/$defs/objectField" }]
           }
         },
-        "required": { "$ref": "#/$defs/requiredNames" }
+        "required": { "$ref": "#/$defs/requiredNames" },
+        "additionalProperties": { "description": "Options are always closed; only `false` may be said.", "const": false },
+        "$schema": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" }
       }
     },
     "fieldName": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
@@ -272,7 +276,9 @@
             "pattern": { "type": "string", "format": "regex" }
           }
         },
-        "default": { "type": "array" }
+        "default": { "type": "array" },
+        "minItems": { "type": "integer", "minimum": 0, "maximum": 64 },
+        "maxItems": { "type": "integer", "minimum": 0, "maximum": 64 }
       },
       "$ref": "#/$defs/labels",
       "unevaluatedProperties": false
@@ -289,7 +295,8 @@
             "oneOf": [{ "$ref": "#/$defs/scalarField" }, { "$ref": "#/$defs/arrayField" }]
           }
         },
-        "required": { "$ref": "#/$defs/requiredNames" }
+        "required": { "$ref": "#/$defs/requiredNames" },
+        "additionalProperties": { "const": false }
       },
       "$ref": "#/$defs/labels",
       "unevaluatedProperties": false
