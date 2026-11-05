@@ -199,7 +199,7 @@
       "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)(?:\\.(?:0|[1-9][0-9]*))?(?:-[0-9A-Za-z]+(?:\\.[0-9A-Za-z]+)*)?$"
     },
     "pluginRef": {
-      "description": "A plugin of the plugin catalogue (`https://schemas.stokerhq.app/plugins/v1/`) — a hook plugin, a mod loader, a mod, a library — pinned to one version. Pinned, because a newer version must never change what an existing entry installs. By key and version only, never by where the catalogue is kept, so the catalogue can live in a repository of its own.",
+      "description": "A plugin of a plugin registry (`https://schemas.stokerhq.app/plugins/v1/`) — a hook plugin, a mod loader, a mod, a library — pinned to one version. Pinned, because a newer version must never change what an existing entry installs. By key and version only, never by where the catalogue is kept, so the catalogue can live in a repository of its own.",
       "type": "object",
       "required": ["key", "version"],
       "additionalProperties": false,
@@ -225,7 +225,7 @@
       }
     },
     "pluginAssignment": {
-      "description": "A plugin from the plugin catalogue applied to a game, a release or one build, with the copies it is for — a hook plugin a loader runs inside the game, a mod laid into it. Placed and combined exactly as fixes and hooks are (the README's combine rule): written at the widest level it holds for, narrowed by `when`, switched off below by an assignment of the same plugin with `enabled: false`. Pinned to one version, so one release can keep a version while a later one moves on.",
+      "description": "A plugin from a plugin registry applied to a game, a release or one build, with the copies it is for — a hook plugin a loader runs inside the game, a mod laid into it. Placed and combined exactly as fixes and hooks are (the README's combine rule): written at the widest level it holds for, narrowed by `when`, switched off below by an assignment of the same plugin with `enabled: false`. Pinned to one version, so one release can keep a version while a later one moves on.",
       "type": "object",
       "required": ["plugin"],
       "additionalProperties": false,

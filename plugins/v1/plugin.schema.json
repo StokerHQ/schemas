@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.stokerhq.app/plugins/v1/plugin.schema.json",
   "title": "Stoker plugins — plugin",
-  "description": "`plugins/<key>/plugin.json`: what a plugin is, across its versions. A plugin catalogue is its own format, apart from the game metadata: games name a plugin only by key and version, so the catalogue can sit beside the games or in a repository of its own with the same layout. The files are never in the catalogue — each version lists its files by hash and where their author publishes them — and a Stoker host runs no version its administrator has not approved.",
+  "description": "`plugins/<key>/plugin.yaml` in a plugin registry: what a plugin is, across its versions. A registry is an index — this file and one file per version beside it, with the registry's `registry.yaml` at its root — and never a file host: each version names its files as release assets on the plugin's own repository, by URL and hash. Recipes name a plugin only by key and version. A Stoker host runs no version its administrator has not approved.",
   "type": "object",
   "required": ["schemaVersion", "key", "kind", "name"],
   "additionalProperties": false,
@@ -10,7 +10,7 @@
     "$schema": { "type": "string" },
     "schemaVersion": { "$ref": "../../metadata/v1/common.schema.json#/$defs/schemaVersion" },
     "key": {
-      "description": "The folder's name, and the key every version's manifest declares.",
+      "description": "The folder's name, and the key every version's manifest declares. Reverse-DNS, and owned by namespace: a registry's `registry.yaml` says which publisher may publish under which prefix. Stoker's own plugins are `app.stokerhq.*`.",
       "$ref": "../../metadata/v1/common.schema.json#/$defs/pluginKey"
     },
     "kind": { "$ref": "#/$defs/kind" },
@@ -18,18 +18,18 @@
     "description": { "type": "string" },
     "authors": { "type": "array", "items": { "type": "string", "minLength": 1 } },
     "license": {
-      "description": "An SPDX licence expression — `MIT`, `LGPL-2.1-only`, `CC-BY-NC-ND-4.0` — or `LicenseRef-<name>` for one SPDX does not list. What a host may do with the files is the licence's answer, which is why the catalogue links to the author's copy rather than keeping one.",
+      "description": "An SPDX licence expression — `MIT`, `LGPL-2.1-only`, `CC-BY-NC-ND-4.0` — or `LicenseRef-<name>` for one SPDX does not list. What a host may do with the files is the licence's answer, which is why a registry links to the author's own release rather than keeping a copy.",
       "type": "string",
       "minLength": 1
     },
     "homepage": { "type": "string", "format": "uri" },
-    "sourceCode": { "type": "string", "format": "uri" },
+    "sourceCode": { "description": "Where the plugin's source is kept. Each version also names the exact commit it was built from (`source`).", "type": "string", "format": "uri" },
     "notes": { "description": "Markdown.", "type": "string" }
   },
   "$defs": {
     "kind": {
-      "description": "`hook`: native code a loader runs inside a game; assigned to a game, a release or a build (`plugins`). `mod`: files an install lays into a game for a mod loader — the loader itself (BepInEx), or a plugin for it; assigned like a hook. `library`: a file other plugins load, never assigned and never run on its own.",
-      "enum": ["hook", "mod", "library"]
+      "description": "Where the plugin's code runs, which is what decides how much trust it takes. `hook`: native code a bootstrap loads inside a game; assigned to a game, a release or a build (`plugins`). `mod`: files an install lays into a game for a mod loader — the loader itself (BepInEx), or a plugin for it; assigned like a hook. `integration`: a store SDK's replacement inside a game — bootstraps and their implementation — laid over the store's own file by the install plan. `server`: an extension stokerd loads at start, with stokerd's full rights; a host takes one only from a registry it trusts for that kind. `unpacker`: an assembly stokerd's ingest runs beside it, in a process of its own. `library`: a file other plugins load, never assigned and never run on its own. Every kind is valid in the format; what a registry accepts is its `policy` (`registry.yaml`).",
+      "enum": ["hook", "mod", "integration", "server", "unpacker", "library"]
     }
   }
 }

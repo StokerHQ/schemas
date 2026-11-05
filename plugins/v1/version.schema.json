@@ -2,9 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.stokerhq.app/plugins/v1/version.schema.json",
   "title": "Stoker plugins — version",
-  "description": "`plugins/<key>/<version>.json`: one version of a plugin — immutable once published, as a new binary is a new version. It may gain files for further platforms later, never change one: a file listed here is the file every host that approved this version runs. Hashes pin the bytes; where the author publishes them is in `downloads`.",
+  "description": "`plugins/<key>/<version>.yaml` in a plugin registry: one version of a plugin — immutable once published, as a new binary is a new version. It may gain files for further platforms later, never change one: a file listed here is the file every host that approved this version runs. The files are the assets of the version's release on the plugin's own repository (`release`); their hashes pin the bytes, and the publisher's `signature` vouches for them.",
   "type": "object",
-  "required": ["schemaVersion", "key", "version", "kind", "files"],
+  "required": ["schemaVersion", "key", "version", "kind", "release", "source", "signature", "files"],
   "additionalProperties": false,
   "properties": {
     "$schema": { "type": "string" },
@@ -15,12 +15,43 @@
       "$ref": "../../metadata/v1/common.schema.json#/$defs/pluginVersion"
     },
     "kind": {
-      "description": "Repeated from `plugin.json`, so this file can be checked on its own.",
+      "description": "Repeated from `plugin.yaml`, so this file can be checked on its own.",
       "$ref": "plugin.schema.json#/$defs/kind"
     },
     "name": { "description": "The version's own name, when its manifest gives one other than the plugin's.", "type": "string", "minLength": 1 },
     "description": { "type": "string" },
     "released": { "$ref": "../../metadata/v1/common.schema.json#/$defs/partialDate" },
+    "release": {
+      "description": "The release on the plugin's repository whose assets are this version's files. Its tag is `v<version>` in a repository of one plugin (`v1.2.0`) and `<key>/<version>` in a repository of several (`app.stokerhq.peacock/1.2.0`), so a release always says which plugin it is.",
+      "type": "object",
+      "required": ["repository", "tag"],
+      "additionalProperties": false,
+      "properties": {
+        "repository": { "description": "The repository's web address: `https://github.com/<owner>/<name>`, a Forgejo one alike.", "type": "string", "format": "uri", "pattern": "^https://" },
+        "tag": { "type": "string", "minLength": 1 }
+      }
+    },
+    "source": {
+      "description": "The exact source the files were built from, so every published binary says where its code is — which a copyleft licence asks of anybody passing the binary on.",
+      "type": "object",
+      "required": ["repository", "commit"],
+      "additionalProperties": false,
+      "properties": {
+        "repository": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "commit": { "description": "The full commit id.", "type": "string", "pattern": "^[0-9a-f]{40}$" }
+      }
+    },
+    "signature": {
+      "description": "The publisher's signature on this version: ECDSA P-256 with SHA-256 over the version's statement, as IEEE P1363 (r and s, 32 bytes each), base64 — the scheme Stoker's launcher releases are signed with. The statement is UTF-8 text, every line ending in a line feed (`\\n`): `stoker-plugin-v1`, the key, the version and the kind, one per line, then one line per file — `<os>\\t<architecture>\\t<fileName>\\t<size>\\t<sha256>\\t<blake3>` with the size in decimal and both hashes in lowercase hex — ordered ordinally by `<os>\\t<architecture>\\t<fileName>`. What is signed is the files' identity, not where they are: a release moved to another host, or a mirror, still verifies.",
+      "type": "object",
+      "required": ["publisher", "algorithm", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "publisher": { "description": "The publisher's `id` in the registry's `registry.yaml`, whose key verifies the signature and whose namespaces must include this key.", "$ref": "registry.schema.json#/$defs/publisherId" },
+        "algorithm": { "const": "ecdsa-p256-sha256" },
+        "value": { "description": "Base64 of the 64-byte IEEE P1363 signature.", "type": "string", "pattern": "^[A-Za-z0-9+/]{86}==$" }
+      }
+    },
     "abi": {
       "description": "Hook plugins: the hook ABI the plugin was built for, from its manifest.",
       "type": "integer",
@@ -36,6 +67,55 @@
     "manifestSha256": {
       "description": "Hook plugins: SHA-256 of the manifest embedded in every file of the version (`.stkmeta`). Every file carries the identical manifest, so one configuration contract is right for all of them — and a host reading a file's manifest can tell it is this version.",
       "$ref": "../../metadata/v1/common.schema.json#/$defs/sha256"
+    },
+    "loader": {
+      "description": "Mods: the mod loader the files are for — or, for the loader itself, which loader it is.",
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "description": "`bepInEx5`, `bepInEx6` (Mono builds of Unity games).", "enum": ["bepInEx5", "bepInEx6"] },
+        "version": { "description": "The loader version the mod needs at least, when it needs more than the loader's first release.", "type": "string", "minLength": 1 }
+      }
+    },
+    "integration": {
+      "description": "Integration packages: the store SDK the package replaces inside a game, and which of the game's files it lays itself over. A package is one zip per architecture (one `files` entry each): its bootstrap, which goes over the store's file in the game, and its implementation together, at the paths an install lays them.",
+      "type": "object",
+      "required": ["provider", "replaces", "architectures"],
+      "additionalProperties": false,
+      "properties": {
+        "provider": { "enum": ["ubisoftConnect", "epicOnlineServices", "gogGalaxy", "steamworks"] },
+        "variant": { "description": "Ubisoft Connect's two APIs: `r1` (`uplay_r1_loader`) or `r2` (`upc_r2_loader`).", "enum": ["r1", "r2"] },
+        "replaces": {
+          "description": "The store's file names the package is laid over, as a game ships them: `uplay_r1_loader64.dll`, `EOSSDK-Win64-Shipping.dll`.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "../../metadata/v1/common.schema.json#/$defs/fileName" }
+        },
+        "architectures": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["x86", "x64", "arm64"] } }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "provider": { "const": "ubisoftConnect" } } },
+          "then": { "required": ["variant"] },
+          "else": { "not": { "required": ["variant"] } }
+        }
+      ]
+    },
+    "server": {
+      "description": "Server extensions: which stokerd can load the version. A host refuses one whose extensibility API it does not speak, or whose range its own version is outside.",
+      "type": "object",
+      "required": ["stokerd", "extensibilityApi"],
+      "additionalProperties": false,
+      "properties": {
+        "stokerd": {
+          "description": "The stokerd versions it runs on: comparators separated by spaces, all of which must hold — `>=1.4.0 <2.0.0`.",
+          "type": "string",
+          "pattern": "^(?:>=|<=|>|<|=)?(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z.]+)?(?: +(?:>=|<=|>|<|=)?(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z.]+)?)*$"
+        },
+        "extensibilityApi": { "description": "The `Stoker.Extensibility` API version it was built against.", "type": "integer", "minimum": 1 }
+      }
     },
     "config": {
       "description": "What can be configured, from the plugin's manifest: the subset of JSON Schema a host renders as a form and checks every assignment's `config` against.",
@@ -54,7 +134,7 @@
       "items": { "$ref": "#/$defs/file" }
     },
     "retired": {
-      "description": "Not to be chosen for anything new. What already names it keeps working — an assignment is pinned, and pulling a version out from under it would change an install nobody touched.",
+      "description": "Withdrawn: not to be chosen for anything new, and a host warns where it is assigned. What already names it keeps working and the version stays listed — an assignment is pinned, a recipe pinned to it must still resolve, and pulling a version out from under either would change an install nobody touched. A mistake is a new version plus this.",
       "type": "boolean",
       "default": false
     },
@@ -68,11 +148,29 @@
       "else": { "not": { "anyOf": [{ "required": ["abi"] }, { "required": ["hosts"] }, { "required": ["manifestSha256"] }] } }
     },
     {
-      "if": { "properties": { "kind": { "const": "library" } } },
-      "then": {
-        "not": { "required": ["config"] },
-        "properties": { "files": { "items": { "properties": { "architecture": { "const": "il" } } } } }
-      }
+      "if": { "properties": { "kind": { "const": "mod" } } },
+      "then": { "required": ["loader"] },
+      "else": { "not": { "required": ["loader"] } }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "integration" } } },
+      "then": { "required": ["integration"] },
+      "else": { "not": { "required": ["integration"] } }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "server" } } },
+      "then": { "required": ["server"] },
+      "else": { "not": { "required": ["server"] } }
+    },
+    {
+      "description": "Managed code is one file for every architecture.",
+      "if": { "properties": { "kind": { "enum": ["library", "unpacker", "server"] } } },
+      "then": { "properties": { "files": { "items": { "properties": { "architecture": { "const": "il" } } } } } }
+    },
+    {
+      "description": "Nothing configures what is never assigned to a game or set up by an administrator: a library is loaded by other plugins, an unpacker by the ingest.",
+      "if": { "properties": { "kind": { "enum": ["library", "unpacker"] } } },
+      "then": { "not": { "required": ["config"] } }
     },
     {
       "if": { "properties": { "retired": { "const": true } }, "required": ["retired"] },
@@ -82,7 +180,7 @@
   "$defs": {
     "file": {
       "type": "object",
-      "required": ["os", "architecture", "fileName", "size", "sha256", "blake3"],
+      "required": ["os", "architecture", "fileName", "size", "sha256", "blake3", "url"],
       "additionalProperties": false,
       "properties": {
         "os": { "$ref": "../../metadata/v1/common.schema.json#/$defs/platform" },
@@ -93,14 +191,19 @@
         "fileName": { "$ref": "../../metadata/v1/common.schema.json#/$defs/fileName" },
         "size": { "type": "integer", "minimum": 1 },
         "sha256": {
-          "description": "What a download, or a file an administrator supplies, is checked against.",
+          "description": "What a download — from the release, a mirror, or an administrator's own copy — is checked against.",
           "$ref": "../../metadata/v1/common.schema.json#/$defs/sha256"
         },
         "blake3": {
           "description": "The same file by BLAKE3, which a host's chunk store already computes for whatever it holds.",
           "$ref": "../../metadata/v1/common.schema.json#/$defs/blake3"
         },
-        "downloads": { "$ref": "../../metadata/v1/common.schema.json#/$defs/downloads" }
+        "url": {
+          "description": "The release asset. When it is gone, the registry's mirrors (`registry.yaml`) are tried by SHA-256; the hash decides what a file is, wherever it came from.",
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://"
+        }
       }
     },
     "configContract": {

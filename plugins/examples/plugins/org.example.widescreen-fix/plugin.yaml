@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://schemas.stokerhq.app/plugins/v1/plugin.schema.json
+schemaVersion: "1.0"
+key: org.example.widescreen-fix
+kind: hook
+name: "Widescreen fix"
+description: "Corrects the aspect ratio a game reports to its renderer."
+authors: ["Example Author"]
+license: MIT
+sourceCode: "https://example.com/example-author/widescreen-fix"

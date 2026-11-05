@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.stokerhq.app/plugins/v1/registry.schema.json",
+  "title": "Stoker plugins — registry",
+  "description": "`registry.yaml` at a plugin registry's root: who the registry is, the key its compiled index is signed with, which publishers it accepts and under which namespaces, and what it refuses. A Stoker host subscribes to a registry by its `url` and `key`; through it, the host trusts the publishers listed here, for their namespaces only.",
+  "type": "object",
+  "required": ["schemaVersion", "name", "url", "key", "publishers"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "$ref": "../../metadata/v1/common.schema.json#/$defs/schemaVersion" },
+    "name": { "description": "A short name a host shows, and records on what it installs from the registry (`registry:<name>`).", "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "title": { "type": "string", "minLength": 1 },
+    "url": {
+      "description": "Where the compiled index is served: `<url>/index/v1/timestamp.json`, `<url>/index/v1/plugins.json.zst`, `<url>/index/v1/plugins/<key>.json`.",
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://[^?#]*[^/?#]$"
+    },
+    "key": {
+      "description": "The registry's public key, which signs `timestamp.json` (`timestamp.schema.json`).",
+      "$ref": "#/$defs/publicKey"
+    },
+    "publishers": {
+      "description": "Who may publish in this registry, with the key each version's `signature` is checked against and the key prefixes it owns. A prefix belongs to one publisher.",
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/publisher" }
+    },
+    "policy": {
+      "description": "What this registry refuses, whoever signed it. The public StokerHQ registry refuses `unpacker`, and integrations whose provider's check they would answer for a store.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "refusedKinds": { "type": "array", "uniqueItems": true, "items": { "$ref": "plugin.schema.json#/$defs/kind" } },
+        "refusedIntegrationProviders": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "enum": ["ubisoftConnect", "epicOnlineServices", "gogGalaxy", "steamworks"] }
+        }
+      }
+    },
+    "mirrors": {
+      "description": "Places that keep copies of the registry's files by content: a file is at `<mirror>/<sha256[0:2]>/<sha256>`. A host tries them, in order, when a release asset is gone; the hash decides whether what it got is the file.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "format": "uri", "pattern": "^https://[^?#]*[^/?#]$" }
+    },
+    "notes": { "description": "Markdown.", "type": "string" }
+  },
+  "$defs": {
+    "publisherId": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "publicKey": {
+      "description": "An ECDSA P-256 public key: base64 of its DER SubjectPublicKeyInfo — the body of the PEM `-----BEGIN PUBLIC KEY-----` block, on one line — as Stoker's release keys are written. Its id, which a host shows, is the first 8 bytes of the SHA-256 of those DER bytes, in lowercase hex.",
+      "type": "string",
+      "pattern": "^MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE[A-Za-z0-9+/]{86}==$"
+    },
+    "publisher": {
+      "type": "object",
+      "required": ["id", "name", "publicKey", "namespaces"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "description": "What a version's `signature.publisher` names.", "$ref": "#/$defs/publisherId" },
+        "name": { "type": "string", "minLength": 1 },
+        "publicKey": { "$ref": "#/$defs/publicKey" },
+        "namespaces": {
+          "description": "The key prefixes this publisher may publish under, each ending in a dot: `app.stokerhq.` owns `app.stokerhq.peacock`.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z0-9]+(?:[_-][a-z0-9]+)*(?:\\.[a-z0-9]+(?:[_-][a-z0-9]+)*)*\\.$" }
+        },
+        "homepage": { "type": "string", "format": "uri" }
+      }
+    }
+  }
+}

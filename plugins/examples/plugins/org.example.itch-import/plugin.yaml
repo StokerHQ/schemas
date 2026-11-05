@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://schemas.stokerhq.app/plugins/v1/plugin.schema.json
+schemaVersion: "1.0"
+key: org.example.itch-import
+kind: server
+name: "itch.io import"
+description: "Lists an itch.io account's purchases as an import source."
+authors: ["Example Author"]
+license: MIT
+sourceCode: "https://example.com/example-author/stoker-plugins"

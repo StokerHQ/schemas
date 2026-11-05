@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://schemas.stokerhq.app/plugins/v1/plugin.schema.json
+schemaVersion: "1.0"
+key: org.example.galaxy-layer
+kind: integration
+name: "Galaxy layer"
+description: "Answers a GOG game's Galaxy SDK calls in place of the GOG Galaxy client."
+authors: ["Example Author"]
+license: MIT
+sourceCode: "https://example.com/example-author/stoker-plugins"

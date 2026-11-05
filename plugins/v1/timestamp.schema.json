@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.stokerhq.app/plugins/v1/timestamp.schema.json",
+  "title": "Stoker plugins — timestamp",
+  "description": "`index/v1/timestamp.json`: the one signed file of a compiled index. It pins every other file of the index by hash and size, and says how new the index is. Its signature is `index/v1/timestamp.json.sig`: the registry key's ECDSA P-256 signature with SHA-256 over this file's exact bytes, as IEEE P1363 (r and s, 32 bytes each), base64, nothing else in the file. A host refuses a timestamp whose `serial` is lower than the one it holds (an index rolled back) or whose `expires` has passed (an index held back), keeps what it has, and says so.",
+  "type": "object",
+  "required": ["schemaVersion", "registry", "serial", "generated", "expires", "index", "plugins"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "$ref": "../../metadata/v1/common.schema.json#/$defs/schemaVersion" },
+    "registry": { "description": "The registry's `name`.", "$ref": "index.schema.json#/$defs/registryName" },
+    "serial": { "description": "Raised by one at least on every new index.", "type": "integer", "minimum": 1 },
+    "generated": { "type": "string", "format": "date-time" },
+    "expires": { "description": "After this a host stops taking the index as current. A registry signs a fresh timestamp before then even when nothing changed.", "type": "string", "format": "date-time" },
+    "index": { "description": "`index/v1/plugins.json.zst`, compressed as served.", "$ref": "#/$defs/pinned" },
+    "plugins": {
+      "description": "Every `index/v1/plugins/<key>.json`, by key.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["key", "sha256", "size"],
+        "additionalProperties": false,
+        "properties": {
+          "key": { "$ref": "../../metadata/v1/common.schema.json#/$defs/pluginKey" },
+          "sha256": { "$ref": "../../metadata/v1/common.schema.json#/$defs/sha256" },
+          "size": { "type": "integer", "minimum": 1 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "pinned": {
+      "type": "object",
+      "required": ["sha256", "size"],
+      "additionalProperties": false,
+      "properties": {
+        "sha256": { "$ref": "../../metadata/v1/common.schema.json#/$defs/sha256" },
+        "size": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://schemas.stokerhq.app/plugins/v1/registry.schema.json
+# A fictional registry. Both keys are example keys whose private halves were discarded.
+schemaVersion: "1.0"
+name: example
+title: "Example registry"
+url: "https://plugins.example.com"
+key: "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE5CLgR01r6DJrptLdv7t7byjtiHQFdDftEOQiYpzAjNNq2CKrfg8bdLWresKJmnDB5g1NWSJtd8xtOKffb6+dNA=="
+publishers:
+  - id: example-author
+    name: "Example Author"
+    publicKey: "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAErbOBEsqexKQ2X/nXEgoPmb3DkMGCoeL/kiN0/HypHQMXXKv4E2mRDvnprSfCjFsM1vD37H59vRbDeJAy/k2FlA=="
+    namespaces: ["org.example."]
+    homepage: "https://example.com"
+policy:
+  # What the public StokerHQ registry refuses as well.
+  refusedKinds: [unpacker]
+  refusedIntegrationProviders: [ubisoftConnect, epicOnlineServices]
+mirrors: ["https://mirror.example.com/plugins"]

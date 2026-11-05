@@ -1,10 +1,12 @@
-"""Validates a Stoker metadata (recipes) repository, or a plugin catalogue, against the v1 schemas.
+"""Validates a Stoker recipes repository, or a plugin registry, against the v1 schemas.
 
-    python -I validate.py <repository root> [--plugins <plugin catalogue root>]
+    python -I validate.py <repository root> [--plugins <plugin registry root>]
 
-The root may hold `games/`, `runtimes/` and `plugins/`. Games and runtimes are YAML; a plugin catalogue may be
-YAML or JSON. The catalogue is read from `--plugins` when given, else from the root's own `plugins/`. Without
-one, plugin references go unchecked and the run says so.
+The root may hold `games/` and `runtimes/` (a recipes repository), or `registry.yaml` and `plugins/` (a plugin
+registry). Games and runtimes are YAML; a registry's plugins may be YAML or JSON. Recipes name plugins by key and
+version, which are checked against the registry given with `--plugins`, else against the root's own when it is one.
+Without one, plugin references go unchecked and the run says so. Signatures are not verified here: that needs the
+keys and the files, and is the signing tool's job; this checks that each version names a publisher who owns its key.
 
 Two passes. The first reads every document — YAML restricted to what JSON can say, so `no` stays a word and
 `2013-01-14` stays a string — and checks it against its schema. The second checks what a schema cannot see,
@@ -225,7 +227,7 @@ def main(root, plugins_root=None):
         else:
             ids[identifier] = where
 
-    catalogue_root = plugins_root or (root / "plugins" if (root / "plugins").is_dir() else None)
+    catalogue_root = plugins_root or (root if (root / "plugins").is_dir() else None)
     catalogue = load_catalogue(validators, catalogue_root, problems) if catalogue_root else None
     runtimes = load_runtimes(validators, root, problems)
     games = 0
@@ -368,7 +370,7 @@ def main(root, plugins_root=None):
     for warning in warnings:
         print(f"warning: {warning}")
     if catalogue is None and games:
-        print("no plugin catalogue (plugins/ or --plugins): plugin references were not checked")
+        print("no plugin registry (--plugins, or a registry at the root): plugin references were not checked")
     plugins = len(catalogue) if catalogue else 0
     print(f"{games} games, {len(runtimes)} runtimes, {plugins} plugins, {len(problems)} problems, {len(warnings)} warnings")
     return 1 if problems else 0
@@ -701,10 +703,61 @@ def load_runtimes(validators, root, problems):
     return runtimes
 
 
+def load_registry(validators, root, problems):
+    """A registry's `registry.yaml`: its publishers by id, each prefix owned by one of them, and its policy."""
+    path = root / "registry.yaml"
+    if not path.is_file():
+        problems.append("registry.yaml: missing - a plugin catalogue is a registry, and its versions name their publisher there")
+        return None
+    registry = read_document(path, "registry.yaml", problems)
+    if not isinstance(registry, dict):
+        return None
+    problems.extend(schema_problems(validators["registry.schema.json"], "registry.yaml", registry))
+    publishers = {}
+    for index, publisher in enumerate(registry.get("publishers", [])):
+        if publisher.get("id") in publishers:
+            problems.append(f"registry.yaml: publishers[{index}]: id {publisher.get('id')} is listed twice")
+        publishers.setdefault(publisher.get("id"), publisher)
+    # A key belongs to one publisher, so no prefix may sit inside another publisher's.
+    owned = [(prefix, publisher.get("id")) for publisher in publishers.values() for prefix in publisher.get("namespaces", [])]
+    for prefix, owner in owned:
+        for other, other_owner in owned:
+            if owner != other_owner and prefix.startswith(other):
+                problems.append(f"registry.yaml: namespace {prefix} of {owner} lies inside {other_owner}'s {other}")
+    return {"publishers": publishers, "policy": registry.get("policy", {})}
+
+
+def check_registry_version(relative, version, registry):
+    """What a registry adds to a version: its release tag names it, its signer owns its key, and the registry takes it."""
+    key, number = version.get("key"), version.get("version")
+    tag = (version.get("release") or {}).get("tag")
+    if tag is not None and tag not in (f"v{number}", f"{key}/{number}"):
+        yield f"{relative}: release tag {tag} names another version - v{number} in a repository of one plugin, {key}/{number} in one of several"
+    if registry is None:
+        return
+    signer = (version.get("signature") or {}).get("publisher")
+    publisher = registry["publishers"].get(signer)
+    if publisher is None:
+        yield f"{relative}: signed by {signer}, who is not a publisher in registry.yaml"
+    elif isinstance(key, str) and not any(key.startswith(prefix) for prefix in publisher.get("namespaces", [])):
+        yield f"{relative}: {key} is outside {signer}'s namespaces ({', '.join(publisher.get('namespaces', []))})"
+    policy = registry["policy"]
+    if version.get("kind") in policy.get("refusedKinds", []):
+        yield f"{relative}: this registry takes no {version.get('kind')} plugins"
+    provider = (version.get("integration") or {}).get("provider")
+    if provider is not None and provider in policy.get("refusedIntegrationProviders", []):
+        yield f"{relative}: this registry takes no {provider} integrations"
+
+
 def load_catalogue(validators, root, problems):
-    """Every plugin of a catalogue: key to its plugin document and its versions. YAML or JSON."""
+    """Every plugin of a registry: key to its plugin document and its versions. YAML or JSON, with `registry.yaml` at
+    the root naming who may publish what."""
     catalogue = {}
-    folder = root / "plugins" if (root / "plugins").is_dir() else root
+    registry = load_registry(validators, root, problems)
+    folder = root / "plugins"
+    if not folder.is_dir():
+        problems.append("plugins/: missing - a registry keeps its plugins in plugins/<key>/")
+        return catalogue
     suffixes = (".yaml", ".json")
     for plugin_folder in sorted(folder.iterdir()):
         name = f"plugins/{plugin_folder.name}"
@@ -742,11 +795,12 @@ def load_catalogue(validators, root, problems):
             for os, architecture in sorted({slot for slot in slots if slots.count(slot) > 1}, key=str):
                 problems.append(f"{relative}: more than one file for {os} {architecture}")
             problems.extend(check_contract(relative, version.get("config")))
+            problems.extend(check_registry_version(relative, version, registry))
             versions[path.stem] = version
         catalogue[plugin_folder.name] = {"plugin": plugin, "versions": versions}
 
     # What a version requires has to be in the catalogue and of a kind that can stand beside it.
-    allowed = {"hook": set(), "mod": {"mod"}, "library": {"library"}}
+    allowed = {"hook": set(), "mod": {"mod"}, "integration": {"library"}, "server": {"server", "library"}, "unpacker": {"library"}, "library": {"library"}}
     for key, entry in catalogue.items():
         for version_name, version in entry["versions"].items():
             for required in version.get("requires", []):
@@ -826,6 +880,6 @@ def check_references(where, assignments, builds, runtimes, catalogue):
 if __name__ == "__main__":
     arguments = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     arguments.add_argument("root", type=Path)
-    arguments.add_argument("--plugins", type=Path, help="a plugin catalogue kept elsewhere")
+    arguments.add_argument("--plugins", type=Path, help="the root of a plugin registry the recipes' plugin references resolve against")
     options = arguments.parse_args()
     sys.exit(main(options.root, options.plugins))

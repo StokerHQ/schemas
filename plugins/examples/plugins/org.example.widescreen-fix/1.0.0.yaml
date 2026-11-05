@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://schemas.stokerhq.app/plugins/v1/version.schema.json
+schemaVersion: "1.0"
+key: org.example.widescreen-fix
+version: 1.0.0
+kind: hook
+released: "2026-10"
+abi: 1
+hosts: [steamworks, galaxy]
+manifestSha256: "e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0"
+release: { repository: "https://example.com/example-author/widescreen-fix", tag: "v1.0.0" }
+source: { repository: "https://example.com/example-author/widescreen-fix", commit: "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1" }
+# An example signature, made with an example publisher key whose private half was discarded.
+signature: { publisher: example-author, algorithm: ecdsa-p256-sha256, value: "0Ll/p28DMHpult5Pr1H5ROpY2SZH1iIAYMkifu6ULDof07k9UK8P3SpkM3/zZl5DpiF86WxIDsXm+EesEyxnDg==" }
+config:
+  type: object
+  properties:
+    aspect: { type: string, title: "Aspect ratio", description: "The ratio of the display the game runs on.", enum: ["16:9", "21:9", "32:9"], default: "16:9" }
+    hudScale: { type: number, title: "HUD scale", minimum: 0.5, maximum: 2, default: 1 }
+    log: { type: boolean, default: false }
+  required: [aspect]
+files:
+  - os: windows
+    architecture: x64
+    fileName: widescreen_fix_x64.dll
+    size: 48640
+    sha256: "e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1"
+    blake3: "e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2"
+    url: "https://example.com/example-author/widescreen-fix/releases/download/v1.0.0/widescreen_fix_x64.dll"
+  - os: windows
+    architecture: x86
+    fileName: widescreen_fix_x86.dll
+    size: 39424
+    sha256: "e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3"
+    blake3: "e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4"
+    url: "https://example.com/example-author/widescreen-fix/releases/download/v1.0.0/widescreen_fix_x86.dll"

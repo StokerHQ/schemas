@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://schemas.stokerhq.app/plugins/v1/version.schema.json
+schemaVersion: "1.0"
+key: org.example.itch-import
+version: 2.0.0
+kind: server
+server: { stokerd: ">=1.4.0 <2.0.0", extensibilityApi: 1 }
+release: { repository: "https://example.com/example-author/stoker-plugins", tag: "org.example.itch-import/2.0.0" }
+source: { repository: "https://example.com/example-author/stoker-plugins", commit: "b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3" }
+# An example signature, made with an example publisher key whose private half was discarded.
+signature: { publisher: example-author, algorithm: ecdsa-p256-sha256, value: "WpvQdx9sqdagR74etga6RgMXVzRLSdnOlAwAWvmY1OZfO3z+5sYS4M38LHQge3tU0ad1bk3bNOllLRwKVjTHDA==" }
+config:
+  type: object
+  properties:
+    apiKey: { type: string, title: "API key", description: "An itch.io API key of the account whose purchases are listed.", minLength: 1 }
+  required: [apiKey]
+files:
+  - os: linux
+    architecture: il
+    fileName: Example.ItchImport.dll
+    size: 65536
+    sha256: "f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1"
+    blake3: "f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2"
+    url: "https://example.com/example-author/stoker-plugins/releases/download/org.example.itch-import/2.0.0/Example.ItchImport.dll"

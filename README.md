@@ -19,8 +19,9 @@ metadata/
   v1/                          the schemas, served as https://schemas.stokerhq.app/metadata/v1/<file>
   examples/                    a small, fictional recipes repository that validates
 plugins/
-  v1/                          the plugin catalogue's schemas: https://schemas.stokerhq.app/plugins/v1/<file>
-validate.py                    checks a recipes repository and a plugin catalogue against them
+  v1/                          the plugin registries' schemas: https://schemas.stokerhq.app/plugins/v1/<file>
+  examples/                    a small, fictional plugin registry that validates
+validate.py                    checks a recipes repository and a plugin registry against them
 ```
 
 ### Layout of a recipes repository
@@ -36,7 +37,6 @@ games/
       <name>.yaml              one release (a version), every known build of it, and their fixes
 runtimes/
   <key>.yaml                   one runtime machines need (Visual C++, DirectX) and its known copies
-plugins/                       the plugin catalogue, for now (see "Plugin catalogue")
 ```
 
 | Document | Schema |
@@ -183,7 +183,7 @@ narrowed by its `when`:
 4. apply the rest build-level first, each fix's `when` checked against the files as they are when its turn comes,
    skipping a fix whose `appliedWhen` already holds.
 
-A **plugin** (`plugins`) is a catalogue plugin pinned by key and version, with its `config`: a hook plugin a loader
+A **plugin** (`plugins`) is a registry's plugin pinned by key and version, with its `config`: a hook plugin a loader
 runs inside the game, a mod laid into it. A **hook** (`hooks`) is a declarative hook on a DLL's named export —
 return a value instead, forward, or intercept and override its result, optionally rewrite one string argument
 (`guards` check argument values first) — with an `id`, and `atLaunch` when it has to be in place before the game's
@@ -241,34 +241,83 @@ The recipes — everything in a recipes repository — and the archive's manifes
 publishers', kept for preservation, and the archive says how to ask for one to be removed. The schemas and
 `validate.py` are MIT.
 
-### Plugin catalogue — v1
+### Plugin registries — v1
 
-Plugins are a format of their own, so the catalogue can move to a repository of its own: games name a plugin only by
-key and version (`pluginRef`), never by where it is kept.
+A plugin is published in a **registry**: a git repository that is an index, never a file host. Recipes name a plugin
+only by key and version (`pluginRef`), and a Stoker host subscribes to registries — the public StokerHQ one and any
+private ones, all in this format — by their URL and key, and resolves those references against them.
 
 ```
+registry.yaml                     who the registry is, its key, its publishers and their namespaces, its policy
 plugins/
   <key>/
-    plugin.json | plugin.yaml   what the plugin is: kind, name, author, licence, homepage
-    <version>.json | .yaml      one immutable version: its files by hash, where their author publishes
-                                them, the config contract from its manifest, what it requires
+    plugin.yaml                   what the plugin is: kind, name, authors, licence, where its source is
+    <version>.yaml                one immutable version: its release, its source commit, the publisher's signature,
+                                  each file by URL and hash, the config contract, what it requires
+index/v1/                         compiled from the above on every change, never edited (below)
 ```
 
 | Document | Schema |
 |---|---|
-| `plugins/<key>/plugin.*` | `plugins/v1/plugin.schema.json` |
-| `plugins/<key>/<version>.*` | `plugins/v1/version.schema.json` |
+| `registry.yaml` | `plugins/v1/registry.schema.json` |
+| `plugins/<key>/plugin.yaml` | `plugins/v1/plugin.schema.json` |
+| `plugins/<key>/<version>.yaml` | `plugins/v1/version.schema.json` |
+| `index/v1/plugins.json.zst`, `index/v1/plugins/<key>.json` | `plugins/v1/index.schema.json` (the second: its `$defs/pluginDocument`) |
+| `index/v1/timestamp.json` | `plugins/v1/timestamp.schema.json` |
 
-Kinds: `hook` (native code a loader runs inside a game), `mod` (files laid into a game for a mod loader, the loader
-included) and `library` (loaded by other plugins, never assigned). Hooks and mods are assigned in `plugins`, on a game,
-a release or a build.
+**Kinds**, by where the code runs — which is what decides how much trust it takes: `hook` (native code a bootstrap loads
+inside a game), `mod` (files laid into a game for a mod loader, the loader included; says its `loader`), `integration`
+(a store SDK's replacement inside a game, laid over the store's own file; says its `provider` and what it `replaces`;
+one zip per architecture holding the bootstrap and its implementation),
+`server` (an extension stokerd loads, with stokerd's rights; says which `stokerd` and extensibility API it needs),
+`unpacker` (an assembly stokerd's ingest runs in a process of its own) and `library` (loaded by other plugins, never run
+on its own). Hooks and mods are assigned in a recipe's `plugins`; the others are not.
 
-**No binaries.** A version lists each file's SHA-256 and BLAKE3 and the URLs its author publishes it at; whatever a
-host downloads is checked against the hash. A runtime's copies are known by their installer's BLAKE3 and size, which is
-how Stoker finds one a game bundles; a copy with `downloads` also carries the SHA-256 a download is checked against.
+**The files are release assets on the plugin's own repository.** A version names its `release` — repository and tag —
+and each file by `url`, size, SHA-256 and BLAKE3. A repository holding one plugin tags releases `v<version>` (`v1.2.0`);
+one holding several tags them `<key>/<version>` (`app.stokerhq.peacock/1.2.0`), so a release always says which plugin it
+is. `source` names the exact commit the files were built from. The hashes decide what a file is: when a release asset is
+gone, a host tries the registry's `mirrors` by SHA-256 (`<mirror>/<sha256[0:2]>/<sha256>`), and an administrator can
+still supply a file by hand.
 
-**A host's administrator approves every plugin version once** before it runs anywhere on that host.
+**Keys and namespaces.** A key is reverse-DNS; Stoker's own plugins are `app.stokerhq.*`. `registry.yaml` lists each
+publisher with its public key and the prefixes it owns (`app.stokerhq.`), and a prefix belongs to one publisher. A
+version is signed by a publisher who owns its key's prefix, or the registry refuses it.
 
+**The signature.** The publisher signs each version: ECDSA P-256 with SHA-256, IEEE P1363 (r and s, 32 bytes each),
+base64 — the scheme Stoker's launcher releases are signed with. Public keys are written as base64 of their DER
+SubjectPublicKeyInfo (the body of a PEM `PUBLIC KEY` block, on one line); a key's id is the first 8 bytes of the
+SHA-256 of those DER bytes, in lowercase hex. What is signed is this statement, UTF-8, every line ending in `\n`:
+
+```
+stoker-plugin-v1
+<key>
+<version>
+<kind>
+<os>\t<architecture>\t<fileName>\t<size>\t<sha256>\t<blake3>      one line per file, ordered ordinally by
+...                                                               <os>\t<architecture>\t<fileName>
+```
+
+Sizes are decimal, hashes lowercase hex. Where a file is kept is not signed, so a moved release or a mirror still
+verifies.
+
+**The compiled index** is what a host reads: `index/v1/plugins.json.zst` (the publishers, the policy and every plugin
+with every version, as JSON, zstd-compressed), one `index/v1/plugins/<key>.json` per plugin, and
+`index/v1/timestamp.json`, which pins both by SHA-256 and size and carries a `serial` and an `expires`.
+`timestamp.json.sig` is the registry key's signature over the timestamp's exact bytes, base64, the same algorithm.
+A host refuses a timestamp with a lower serial than the one it holds, or one past its `expires`, and keeps what it
+has.
+
+**Policy.** `registry.yaml`'s `policy` says what the registry refuses whoever signed it: kinds (`refusedKinds`) and
+integration providers (`refusedIntegrationProviders`). The public StokerHQ registry refuses `unpacker` and the
+integrations that would answer a store's ownership check; a private registry may take them.
+
+**A host's administrator approves every plugin version once** before it runs anywhere on that host. A registry makes a
+plugin findable and checkable; it never installs one on its own. A version is never deleted: `retired` (with
+`retiredReason`) withdraws it from new choices, and what is pinned to it keeps working.
+
+The example registry is `plugins/examples/`. Its keys are example keys whose private halves were discarded, and its
+signatures are real ones over each version's statement.
 ### Versions
 
 Every document carries `schemaVersion`, `"<major>.<minor>"`. Once v1 is published, the schemas under `metadata/v1/`
@@ -313,12 +362,19 @@ field; it is readers that are lenient, not the schemas.
   leaderboard name, or tag slug is used twice;
 - every step kind has a class, every hook id is unique, and `disableHooks` names hooks above it;
 - every runtime a build needs is in `runtimes/`, and no installer belongs to two runtimes;
-- every plugin named is in the catalogue at that version, of a kind that can be used there, configured as its
-  contract says.
+- every plugin named is in the registry at that version, of a kind that can be used there, configured as its
+  contract says;
+- in a registry: a plugin's folder is its key and a version's file its version, a release's tag is `v<version>` or
+  `<key>/<version>`, the signer is a publisher in `registry.yaml` who owns the key's prefix, no prefix lies inside
+  another publisher's, the policy takes the version's kind and provider, a version has one file per system and
+  architecture, and what it requires is in the registry. Signatures are not verified here: that needs the keys and the
+  files, and is the signing tool's job.
 
 ```
-python -I validate.py <recipes repository root> [--plugins <plugin catalogue root>]
-python -I validate.py metadata/examples
+python -I validate.py <recipes repository root> [--plugins <plugin registry root>]
+python -I validate.py <plugin registry root>
+python -I validate.py metadata/examples --plugins plugins/examples
+python -I validate.py plugins/examples
 ```
 
 Needs `jsonschema[format-nongpl]` 4.18 or newer and PyYAML. Without the `format-nongpl` extra jsonschema passes every
@@ -328,5 +384,5 @@ URI unchecked, so the validator refuses to run without it.
 
 - **The compiled index** recipes are read from: one signed, compressed file per major, and a small file per store id
   (`by-store/<store>/<kind>/<id>.json`) so *I have game Y from store X* is one request.
-- **Signed plugin versions**, and where fix content (`files`, `binaryPatch`) comes from when a reader does not hold it.
+- Where fix content (`files`, `binaryPatch`) comes from when a reader does not hold it and no `download` step says.
 - **Emulator settings** for console builds, and **age ratings**.

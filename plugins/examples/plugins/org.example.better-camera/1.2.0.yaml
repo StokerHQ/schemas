@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://schemas.stokerhq.app/plugins/v1/version.schema.json
+schemaVersion: "1.0"
+key: org.example.better-camera
+version: 1.2.0
+kind: mod
+loader: { name: bepInEx5 }
+release: { repository: "https://example.com/example-author/stoker-plugins", tag: "org.example.better-camera/1.2.0" }
+source: { repository: "https://example.com/example-author/stoker-plugins", commit: "b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1" }
+# An example signature, made with an example publisher key whose private half was discarded.
+signature: { publisher: example-author, algorithm: ecdsa-p256-sha256, value: "wjxsRA7b4TnpTr/2P/jJsJE92F7twRZRAfRqWTUbM4q/HFy2RPpcAuaAg9jHKhILcZx+TnJj0JHK0TEy4MaaSg==" }
+files:
+  - os: windows
+    architecture: il
+    fileName: BetterCamera.dll
+    size: 20480
+    sha256: "c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1"
+    blake3: "c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2"
+    url: "https://example.com/example-author/stoker-plugins/releases/download/org.example.better-camera/1.2.0/BetterCamera.dll"

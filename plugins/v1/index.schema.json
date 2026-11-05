@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.stokerhq.app/plugins/v1/index.schema.json",
+  "title": "Stoker plugins — compiled index",
+  "description": "What a host reads from a registry: compiled from the registry's tree on every change, never edited. `index/v1/plugins.json.zst` is this document as JSON, compressed with zstd: the registry's publishers and policy, and every plugin with every version. `index/v1/plugins/<key>.json` is one plugin's part alone, uncompressed (`$defs/pluginDocument`), for a host that wants one plugin without the whole index. Both are pinned by hash in `timestamp.json`, which is the only signed file: a host checks the timestamp's signature, then each file it reads against the timestamp.",
+  "type": "object",
+  "required": ["schemaVersion", "registry", "serial", "generated", "key", "publishers", "plugins"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "$ref": "../../metadata/v1/common.schema.json#/$defs/schemaVersion" },
+    "registry": { "description": "The registry's `name`.", "$ref": "#/$defs/registryName" },
+    "serial": { "description": "The same serial as the `timestamp.json` that pins this file.", "type": "integer", "minimum": 1 },
+    "generated": { "type": "string", "format": "date-time" },
+    "key": { "description": "The registry's key, from `registry.yaml`.", "$ref": "registry.schema.json#/$defs/publicKey" },
+    "publishers": { "type": "array", "items": { "$ref": "registry.schema.json#/$defs/publisher" } },
+    "policy": { "$ref": "registry.schema.json#/properties/policy" },
+    "mirrors": { "$ref": "registry.schema.json#/properties/mirrors" },
+    "plugins": { "type": "array", "items": { "$ref": "#/$defs/pluginEntry" } }
+  },
+  "$defs": {
+    "registryName": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "pluginEntry": {
+      "description": "One plugin: its `plugin.yaml` and every version's `<version>.yaml`, as JSON, versions in ascending order.",
+      "type": "object",
+      "required": ["plugin", "versions"],
+      "additionalProperties": false,
+      "properties": {
+        "plugin": { "$ref": "plugin.schema.json" },
+        "versions": { "type": "array", "items": { "$ref": "version.schema.json" } }
+      }
+    },
+    "pluginDocument": {
+      "description": "`index/v1/plugins/<key>.json`: one plugin's entry, with the registry and serial it was compiled in.",
+      "type": "object",
+      "required": ["schemaVersion", "registry", "serial", "plugin", "versions"],
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": { "$ref": "../../metadata/v1/common.schema.json#/$defs/schemaVersion" },
+        "registry": { "$ref": "#/$defs/registryName" },
+        "serial": { "type": "integer", "minimum": 1 },
+        "plugin": { "$ref": "plugin.schema.json" },
+        "versions": { "type": "array", "items": { "$ref": "version.schema.json" } }
+      }
+    }
+  }
+}

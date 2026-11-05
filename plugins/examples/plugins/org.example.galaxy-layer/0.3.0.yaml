@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://schemas.stokerhq.app/plugins/v1/version.schema.json
+schemaVersion: "1.0"
+key: org.example.galaxy-layer
+version: 0.3.0
+kind: integration
+integration: { provider: gogGalaxy, replaces: [Galaxy64.dll], architectures: [x64] }
+release: { repository: "https://example.com/example-author/stoker-plugins", tag: "org.example.galaxy-layer/0.3.0" }
+source: { repository: "https://example.com/example-author/stoker-plugins", commit: "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2" }
+# An example signature, made with an example publisher key whose private half was discarded.
+signature: { publisher: example-author, algorithm: ecdsa-p256-sha256, value: "ZG5BsrXsf5S4vPnLRwsa+jaLUJwo34r2L3b2iAnPioAWbG1fo9u41Xecv4GeY3vnHFoNUgCBmXw0iO3HZYgmqw==" }
+files:
+  - os: windows
+    architecture: x64
+    fileName: galaxy-layer-x64.zip
+    size: 512000
+    sha256: "d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1"
+    blake3: "d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2"
+    url: "https://example.com/example-author/stoker-plugins/releases/download/org.example.galaxy-layer/0.3.0/galaxy-layer-x64.zip"

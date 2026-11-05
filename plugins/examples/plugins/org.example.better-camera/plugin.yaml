@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://schemas.stokerhq.app/plugins/v1/plugin.schema.json
+schemaVersion: "1.0"
+key: org.example.better-camera
+kind: mod
+name: "Better camera"
+description: "A BepInEx plugin that lets the camera zoom further out."
+authors: ["Example Author"]
+license: MIT
+sourceCode: "https://example.com/example-author/stoker-plugins"
